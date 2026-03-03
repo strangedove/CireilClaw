@@ -267,6 +267,22 @@ async function buildNixBindings(args: string[], binaries: string[]): Promise<boo
     args.push("--symlink", data.itself, `/bin/${key}`);
   }
 
+  // Bind /usr/bin/env for shebang compatibility — many scripts hardcode this path.
+  const envBinPath = locate("env", ["/run/current-system/sw/bin"]);
+  if (envBinPath !== undefined) {
+    const envResult = await queryNixStore(envBinPath);
+    if (envResult.success) {
+      for (const path of envResult.requisites) {
+        if (!uniquePaths.has(path)) {
+          args.push("--ro-bind", path, path);
+        }
+      }
+      args.push("--dir", "/usr");
+      args.push("--dir", "/usr/bin");
+      args.push("--symlink", realpathSync(envBinPath), "/usr/bin/env");
+    }
+  }
+
   return true;
 }
 
