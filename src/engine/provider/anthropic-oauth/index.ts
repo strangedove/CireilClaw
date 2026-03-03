@@ -90,8 +90,10 @@ function translateToolResponse(content: ToolResponseContent): AnthropicToolResul
 // Translates internal messages to Anthropic API format.
 // Key differences from OAI: toolResponse messages must be merged into a single user message,
 // and any immediately following user message (typically pending images) is absorbed into that block.
+// Also filters out orphaned tool_result blocks that lack matching tool_use in the preceding assistant message.
 function translateMessages(messages: Message[]): AnthropicMessage[] {
   const result: AnthropicMessage[] = [];
+  let lastToolUseIds = new Set<string>();
 
   for (let idx = 0; idx < messages.length; ) {
     const msg = messages[idx];
@@ -107,11 +109,12 @@ function translateMessages(messages: Message[]): AnthropicMessage[] {
         if (current?.role !== "toolResponse") {
           break;
         }
-        blocks.push(translateToolResponse(current.content));
+        if (lastToolUseIds.has(current.content.id)) {
+          blocks.push(translateToolResponse(current.content));
+        }
         idx++;
       }
 
-      // Absorb the immediately following user message (typically pending images).
       const next = messages[idx];
       if (next?.role === "user") {
         const userContent = Array.isArray(next.content) ? next.content : [next.content];
@@ -125,7 +128,9 @@ function translateMessages(messages: Message[]): AnthropicMessage[] {
         idx++;
       }
 
-      result.push({ content: blocks, role: "user" });
+      if (blocks.length > 0) {
+        result.push({ content: blocks, role: "user" });
+      }
     } else if (msg.role === "user") {
       const userContent = Array.isArray(msg.content) ? msg.content : [msg.content];
       const blocks: AnthropicUserContentBlock[] = [];
@@ -141,18 +146,18 @@ function translateMessages(messages: Message[]): AnthropicMessage[] {
     } else if (msg.role === "assistant") {
       const assistantContent = Array.isArray(msg.content) ? msg.content : [msg.content];
       const blocks: AnthropicAssistantContentBlock[] = [];
+      lastToolUseIds = new Set<string>();
       for (const block of assistantContent) {
         if (block.type === "toolCall") {
           blocks.push({ id: block.id, input: block.input, name: block.name, type: "tool_use" });
+          lastToolUseIds.add(block.id);
         } else if (block.type === "text") {
           blocks.push({ text: block.content, type: "text" });
         }
-        // ImageContent in assistant messages is not supported by Anthropic — skip.
       }
       result.push({ content: blocks, role: "assistant" });
       idx++;
     } else {
-      // System messages are handled at the top level, not in the messages array.
       idx++;
     }
   }
