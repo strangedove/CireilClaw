@@ -187,6 +187,9 @@ export async function generate(
   const system = `You are Claude Code, Anthropic's official CLI for Claude.\n${context.systemPrompt}`;
 
   const body = {
+    cache_control: {
+      type: "ephemeral",
+    },
     max_tokens: 8192,
     messages: translateMessages(context.messages),
     model,
