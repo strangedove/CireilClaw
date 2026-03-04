@@ -12,6 +12,7 @@ const EngineOverrideSchema = vb.partial(
     apiBase: vb.pipe(nonEmptyString, vb.url()),
     apiKey: ApiKeySchema,
     model: nonEmptyString,
+    provider: vb.exactOptional(nonEmptyString, "openai-compatible"),
   }),
 );
 

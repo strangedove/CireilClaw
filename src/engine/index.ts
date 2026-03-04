@@ -217,7 +217,6 @@ export class Engine {
   private readonly _apiBase: string;
   private readonly _model: string;
   private readonly _provider: string;
-  private readonly _type: ProviderKind;
   private readonly _overrides: EngineOverrides;
 
   constructor(cfg: EngineConfig) {
@@ -226,8 +225,6 @@ export class Engine {
     this._apiBase = cfg.apiBase;
     this._model = cfg.model;
     this._provider = cfg.provider;
-    this._type = cfg.provider === "anthropic-oauth" ? "anthropic-oauth" : "openai";
-
     this._overrides = cfg.channel;
   }
 
@@ -247,12 +244,12 @@ export class Engine {
     return this._model;
   }
 
-  get overrides(): EngineOverrides {
-    return this._overrides;
-  }
-
   get provider(): string {
     return this._provider;
+  }
+
+  get overrides(): EngineOverrides {
+    return this._overrides;
   }
 
   /**
@@ -294,6 +291,8 @@ export class Engine {
     const effectiveKeyPool: KeyPool = this._resolveKeyPool(override);
     const effectiveApiBase: string = override?.apiBase ?? this._apiBase;
     const effectiveModel: string = override?.model ?? this._model;
+    const effectiveProvider: ProviderKind =
+      override?.provider === "anthropic-oauth" ? "anthropic-oauth" : "openai";
 
     if (session.history.length > MAX_TURNS * 3) {
       debug(
@@ -328,7 +327,7 @@ export class Engine {
       // oxlint-disable-next-line init-declarations
       let assistantMsg: AssistantMessage;
       let usage: UsageInfo | undefined = undefined;
-      switch (this._type) {
+      switch (effectiveProvider) {
         // oxlint-disable-next-line typescript/no-unnecessary-condition
         case "openai": {
           ({ message: assistantMsg, usage } = await generate(
@@ -350,7 +349,7 @@ export class Engine {
         }
 
         default: {
-          const _exhaustive: never = this._type;
+          const _exhaustive: never = effectiveProvider;
           throw new Error(`Unsupported provider type: ${String(_exhaustive)}`);
         }
       }
