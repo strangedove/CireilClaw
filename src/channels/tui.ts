@@ -79,19 +79,20 @@ function replayHistory(session: TuiSession, appendChat: (prefix: string, text: s
 }
 
 function startTui(harness: Harness, agentSlug: string): void {
-  const agent = harness.agents.get(agentSlug);
-  if (agent === undefined) {
+  const maybeAgent = harness.agents.get(agentSlug);
+  if (maybeAgent === undefined) {
     throw new Error(`Agent ${agentSlug} not found`);
   }
+  const agent = maybeAgent;
 
   // Find or create the TUI session.
   const sessionId = "tui:local";
-  let session = agent.sessions.get(sessionId);
-  if (session !== undefined && !(session instanceof TuiSession)) {
-    throw new TypeError(`invalid session type: expected tui, got ${session.channel}`);
+  const existing = agent.sessions.get(sessionId);
+  if (existing !== undefined && !(existing instanceof TuiSession)) {
+    throw new TypeError(`invalid session type: expected tui, got ${existing.channel}`);
   }
-  if (session === undefined) {
-    session = new TuiSession("local");
+  const session: TuiSession = existing ?? new TuiSession("local");
+  if (existing === undefined) {
     agent.sessions.set(sessionId, session);
   }
 
@@ -192,6 +193,39 @@ function startTui(harness: Harness, agentSlug: string): void {
 
   // --- Input handling ---
   let processing = false;
+  let lastFailed = false;
+
+  function runTurn(): void {
+    processing = true;
+    lastFailed = false;
+    session.lastActivity = Date.now();
+    session.busy = true;
+    setThinking(true);
+
+    const historyLengthBefore = session.history.length;
+
+    // oxlint-disable-next-line promise/prefer-await-to-then,promise/catch-or-return
+    agent
+      .runTurn(session)
+      // oxlint-disable-next-line promise/prefer-await-to-then
+      .catch((error: unknown) => {
+        session.history.length = historyLengthBefore;
+        session.pendingToolMessages.length = 0;
+        session.pendingImages.length = 0;
+        lastFailed = true;
+        const reason = error instanceof Error ? error.message : String(error);
+        appendChat("{red-fg}[error]{/}", reason);
+      })
+      // oxlint-disable-next-line promise/prefer-await-to-then
+      .finally(() => {
+        session.busy = false;
+        processing = false;
+        setThinking(false);
+        saveSession(agent.slug, session);
+        inputBox.focus();
+        screen.render();
+      });
+  }
 
   inputBox.key("enter", () => {
     const text = inputBox.getValue().trim();
@@ -208,9 +242,25 @@ function startTui(harness: Harness, agentSlug: string): void {
       session.openedFiles.clear();
       session.pendingToolMessages.length = 0;
       session.pendingImages.length = 0;
+      lastFailed = false;
       saveSession(agent.slug, session);
       chatLog.setContent("");
       appendChat("{yellow-fg}[system]{/}", "Conversation cleared.");
+      return;
+    }
+
+    // /retry command — re-run the last failed turn without a duplicate user message.
+    if (text === "/retry") {
+      if (!lastFailed) {
+        appendChat("{yellow-fg}[system]{/}", "Nothing to retry.");
+        return;
+      }
+      if (processing || session.busy) {
+        appendChat("{red-fg}[system]{/}", "Please wait — agent is still processing.");
+        return;
+      }
+      appendChat("{yellow-fg}[system]{/}", "Retrying...");
+      runTurn();
       return;
     }
 
@@ -220,6 +270,7 @@ function startTui(harness: Harness, agentSlug: string): void {
     }
 
     processing = true;
+    lastFailed = false;
     appendChat("{cyan-fg}[you]{/}", escapeBlessedTags(text));
 
     session.history.push({
@@ -231,30 +282,16 @@ function startTui(harness: Harness, agentSlug: string): void {
       role: "user",
     });
 
-    session.lastActivity = Date.now();
-    session.busy = true;
-    setThinking(true);
+    runTurn();
+  });
 
-    const historyLengthBefore = session.history.length;
-
-    // oxlint-disable-next-line promise/prefer-await-to-then,promise/catch-or-return
-    agent
-      .runTurn(session)
-      // oxlint-disable-next-line promise/prefer-await-to-then
-      .catch((error: unknown) => {
-        session.history.length = historyLengthBefore;
-        const reason = error instanceof Error ? error.message : String(error);
-        appendChat("{red-fg}[error]{/}", reason);
-      })
-      // oxlint-disable-next-line promise/prefer-await-to-then
-      .finally(() => {
-        session.busy = false;
-        processing = false;
-        setThinking(false);
-        saveSession(agent.slug, session);
-        inputBox.focus();
-        screen.render();
-      });
+  // Ctrl+R — quick retry keybinding (same as /retry).
+  screen.key(["C-r"], () => {
+    if (!lastFailed || processing || session.busy) {
+      return;
+    }
+    appendChat("{yellow-fg}[system]{/}", "Retrying...");
+    runTurn();
   });
 
   // --- Keybindings ---
