@@ -10,6 +10,7 @@ import { loadChannel } from "$/config/index.js";
 import { saveSession } from "$/db/sessions.js";
 import type { ImageContent, TextContent } from "$/engine/content.js";
 import type { Message } from "$/engine/message.js";
+import type { ChannelHandler } from "$/harness/channel-handler.js";
 import type { Harness } from "$/harness/index.js";
 import { DiscordSession } from "$/harness/session.js";
 import colors from "$/output/colors.js";
@@ -559,61 +560,68 @@ async function startDiscord(owner: Harness, agentSlug: string): Promise<OceanicC
     rest: {},
   });
 
-  agent.registerSend(async (session, content, attachments) => {
-    if (!(session instanceof DiscordSession)) {
-      throw new Error("Somehow, `session` was not a DiscordSession");
-    }
+  const discordHandler: ChannelHandler = {
+    capabilities: {
+      supportsAttachments: true,
+      supportsDownloadAttachments: true,
+      supportsReactions: true,
+    },
+    downloadAttachments: async (session, messageId) => {
+      if (!(session instanceof DiscordSession)) {
+        throw new Error("downloadAttachments only works on Discord sessions");
+      }
 
-    const ds = session;
-    const chunks = splitMessage(content);
+      const msg = await client.rest.channels.getMessage(session.channelId, messageId);
+      const results: { filename: string; data: Buffer }[] = [];
+      for (const attachment of msg.attachments.values()) {
+        const response = await fetch(attachment.url);
+        const data = Buffer.from(await response.arrayBuffer());
+        results.push({ data, filename: attachment.filename });
+      }
+      return results;
+    },
+    react: async (session, emoji, messageId) => {
+      if (!(session instanceof DiscordSession)) {
+        throw new Error("Somehow, `session` was not a DiscordSession");
+      }
 
-    const files: { contents: Buffer; name: string }[] | undefined =
-      attachments !== undefined && attachments.length > 0
-        ? await Promise.all(
-            attachments.map(async (sandboxPath) => {
-              const realPath = sandboxToReal(sandboxPath, agentSlug);
-              const contents = await readFile(realPath);
-              return { contents, name: basename(realPath) };
-            }),
-          )
-        : undefined;
+      const targetId = messageId ?? session.lastMessageId;
+      if (targetId === undefined) {
+        return;
+      }
 
-    for (const [idx, chunk] of chunks.entries()) {
-      const isLast = idx === chunks.length - 1;
-      await client.rest.channels.createMessage(ds.channelId, {
-        content: chunk,
-        ...(isLast && files !== undefined ? { files } : {}),
-      });
-    }
-  });
+      await client.rest.channels.createReaction(session.channelId, targetId, emoji);
+    },
+    send: async (session, content, attachments) => {
+      if (!(session instanceof DiscordSession)) {
+        throw new Error("Somehow, `session` was not a DiscordSession");
+      }
 
-  agent.registerDownloadDiscordAttachments(async (session, messageId) => {
-    if (!(session instanceof DiscordSession)) {
-      throw new Error("downloadDiscordAttachments only works on Discord sessions");
-    }
+      const ds = session;
+      const chunks = splitMessage(content);
 
-    const msg = await client.rest.channels.getMessage(session.channelId, messageId);
-    const results: { filename: string; data: Buffer }[] = [];
-    for (const attachment of msg.attachments.values()) {
-      const response = await fetch(attachment.url);
-      const data = Buffer.from(await response.arrayBuffer());
-      results.push({ data, filename: attachment.filename });
-    }
-    return results;
-  });
+      const files: { contents: Buffer; name: string }[] | undefined =
+        attachments !== undefined && attachments.length > 0
+          ? await Promise.all(
+              attachments.map(async (sandboxPath) => {
+                const realPath = sandboxToReal(sandboxPath, agentSlug);
+                const contents = await readFile(realPath);
+                return { contents, name: basename(realPath) };
+              }),
+            )
+          : undefined;
 
-  agent.registerReact(async (session, emoji, messageId) => {
-    if (!(session instanceof DiscordSession)) {
-      throw new Error("Somehow, `session` was not a DiscordSession");
-    }
+      for (const [idx, chunk] of chunks.entries()) {
+        const isLast = idx === chunks.length - 1;
+        await client.rest.channels.createMessage(ds.channelId, {
+          content: chunk,
+          ...(isLast && files !== undefined ? { files } : {}),
+        });
+      }
+    },
+  };
 
-    const targetId = messageId ?? session.lastMessageId;
-    if (targetId === undefined) {
-      return;
-    }
-
-    await client.rest.channels.createReaction(session.channelId, targetId, emoji);
-  });
+  agent.registerChannel("discord", discordHandler);
 
   // oxlint-disable-next-line typescript/no-misused-promises
   client.on("ready", async () => {

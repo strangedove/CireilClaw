@@ -1,21 +1,14 @@
 import type { EngineConfig } from "$/config/schemas.js";
 import { Engine } from "$/engine/index.js";
+import { MINIMAL_HANDLER } from "$/harness/channel-handler.js";
+import type { ChannelHandler } from "$/harness/channel-handler.js";
 import type { Session } from "$/harness/session.js";
-
-type SendFn = (session: Session, content: string, attachments?: string[]) => Promise<void>;
-type ReactFn = (session: Session, emoji: string, messageId?: string) => Promise<void>;
-type DownloadDiscordAttachmentsFn = (
-  session: Session,
-  messageId: string,
-) => Promise<{ filename: string; data: Buffer }[]>;
 
 export class Agent {
   private _engine: Engine;
   private readonly _slug: string;
   private readonly _sessions: Map<string, Session>;
-  private _send: SendFn | undefined = undefined;
-  private _react: ReactFn | undefined = undefined;
-  private _downloadDiscordAttachments: DownloadDiscordAttachmentsFn | undefined = undefined;
+  private readonly _channelHandlers = new Map<string, ChannelHandler>();
 
   constructor(slug: string, cfg: EngineConfig, sessions: Map<string, Session>) {
     this._engine = new Engine(cfg);
@@ -39,16 +32,12 @@ export class Agent {
     return this._sessions;
   }
 
-  registerSend(fn: SendFn): void {
-    this._send = fn;
+  registerChannel(channel: string, handler: ChannelHandler): void {
+    this._channelHandlers.set(channel, handler);
   }
 
-  registerReact(fn: ReactFn): void {
-    this._react = fn;
-  }
-
-  registerDownloadDiscordAttachments(fn: DownloadDiscordAttachmentsFn): void {
-    this._downloadDiscordAttachments = fn;
+  private _getHandler(session: Session): ChannelHandler {
+    return this._channelHandlers.get(session.channel) ?? MINIMAL_HANDLER;
   }
 
   async send(session: Session, content: string, attachments?: string[]): Promise<void> {
@@ -57,29 +46,32 @@ export class Agent {
       return;
     }
 
-    if (this._send === undefined) {
-      throw new Error(`Agent ${this._slug} has no send handler registered`);
-    }
-    await this._send(session, content, attachments);
+    const handler = this._getHandler(session);
+    await handler.send(session, content, attachments);
   }
 
   async runTurn(session: Session): Promise<void> {
+    const handler = this._getHandler(session);
+
     const send = async (content: string, attachments?: string[]): Promise<void> => {
       await this.send(session, content, attachments);
     };
+
     const react =
-      this._react === undefined
+      handler.react === undefined
         ? undefined
         : async (emoji: string, messageId?: string): Promise<void> => {
-            await this._react?.(session, emoji, messageId);
+            await handler.react?.(session, emoji, messageId);
           };
-    const downloadDiscordAttachments =
-      this._downloadDiscordAttachments === undefined
+
+    const downloadAttachments =
+      handler.downloadAttachments === undefined
         ? undefined
         : async (messageId: string): Promise<{ filename: string; data: Buffer }[]> => {
-            const result = await this._downloadDiscordAttachments?.(session, messageId);
+            const result = await handler.downloadAttachments?.(session, messageId);
             return result ?? [];
           };
-    await this._engine.runTurn(session, this._slug, send, react, downloadDiscordAttachments);
+
+    await this._engine.runTurn(session, this._slug, send, react, downloadAttachments);
   }
 }
