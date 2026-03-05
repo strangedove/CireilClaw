@@ -37,8 +37,10 @@ const EngineConfigSchema = vb.strictObject({
   apiBase: vb.pipe(nonEmptyString, vb.url()),
   apiKey: vb.exactOptional(ApiKeySchema, "not-needed"),
   channel: vb.exactOptional(EngineOverridesSchema, {}),
+  maxTokens: vb.exactOptional(vb.pipe(vb.number(), vb.integer(), vb.minValue(1))),
   model: nonEmptyString,
   provider: vb.exactOptional(nonEmptyString, "openai"),
+  temperature: vb.exactOptional(vb.pipe(vb.number(), vb.minValue(0), vb.maxValue(2))),
 });
 
 type EngineConfig = vb.InferOutput<typeof EngineConfigSchema>;

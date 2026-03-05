@@ -220,6 +220,8 @@ export class Engine {
   private readonly _model: string;
   private readonly _provider: string;
   private readonly _overrides: EngineOverrides;
+  private readonly _maxTokens: number | undefined;
+  private readonly _temperature: number | undefined;
 
   constructor(cfg: EngineConfig) {
     this._apiKey = cfg.apiKey;
@@ -228,6 +230,8 @@ export class Engine {
     this._model = cfg.model;
     this._provider = cfg.provider;
     this._overrides = cfg.channel;
+    this._maxTokens = cfg.maxTokens;
+    this._temperature = cfg.temperature;
   }
 
   get apiBase(): string {
@@ -342,6 +346,8 @@ export class Engine {
             effectiveApiBase,
             effectiveKeyPool,
             effectiveModel,
+            this._maxTokens,
+            this._temperature,
           ));
           break;
         }
@@ -351,6 +357,8 @@ export class Engine {
             context,
             effectiveKeyPool,
             effectiveModel,
+            this._maxTokens,
+            this._temperature,
           ));
           break;
         }

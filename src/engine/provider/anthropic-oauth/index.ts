@@ -182,21 +182,27 @@ export async function generate(
   context: Context,
   keyPool: KeyPool,
   model: string,
+  maxTokens?: number,
+  temperature?: number,
 ): Promise<{ message: AssistantMessage; usage?: UsageInfo }> {
   // Required preamble for the claude-code-20250219 beta — the model checks for this.
   const system = `You are Claude Code, Anthropic's official CLI for Claude.\n${context.systemPrompt}`;
 
-  const body = {
+  const body: Record<string, unknown> = {
     cache_control: {
       type: "ephemeral",
     },
-    max_tokens: 8192,
+    max_tokens: maxTokens ?? 8192,
     messages: translateMessages(context.messages),
     model,
     system,
     tool_choice: { type: "any" },
     tools: context.tools.map(translateTool),
   };
+
+  if (temperature !== undefined) {
+    body["temperature"] = temperature;
+  }
 
   // Track attempted keys to avoid infinite loops
   const attemptedKeys = new Set<string>();

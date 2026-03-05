@@ -139,6 +139,8 @@ export async function generate(
   apiBase: string,
   keyPool: KeyPool,
   model: string,
+  maxTokens?: number,
+  temperature?: number,
 ): Promise<{ message: AssistantMessage; usage?: UsageInfo }> {
   // Build params once - they don't change between retries
   const params: ChatCompletionCreateParamsNonStreaming = {
@@ -150,6 +152,14 @@ export async function generate(
     tool_choice: "required",
     tools: context.tools.map(translateTool),
   };
+
+  if (maxTokens !== undefined) {
+    params.max_completion_tokens = maxTokens;
+  }
+
+  if (temperature !== undefined) {
+    params.temperature = temperature;
+  }
 
   if (model.includes("kimi") && model.includes("2.5")) {
     params.tool_choice = "auto";
