@@ -67,29 +67,59 @@ function writeCommandsHash(hash: string): void {
 
 // Wraps an incoming Discord message's content with sender metadata so the
 // agent has full context about who sent what and when, without needing to
-// parse it out of the message history separately.
+// parse it out of the message history separately. Includes attachment metadata
+// so the model knows what files/images are present.
 function formatUserMessage(msg: DiscordMessage): TextContent {
   const { username } = msg.author;
   const authorId = msg.author.id;
   const displayName = msg.member?.nick ?? msg.author.globalName ?? username;
   const timestamp = msg.createdAt.toISOString();
 
+  let innerContent = msg.content;
+
+  // Append attachment metadata so the model knows what files are present
+  const attachments = [...msg.attachments.values()];
+  if (attachments.length > 0) {
+    const attachmentInfo = attachments
+      .map(
+        (att) =>
+          `<attachment id="${att.id}" filename="${att.filename}" contentType="${att.contentType ?? "unknown"}" size="${att.size}" description="${att.description ?? ""}">`,
+      )
+      .join("\n");
+    innerContent += `\n${attachmentInfo}`;
+  }
+
   return {
-    content: `<msg msgId="${msg.id}" from="${username} <${authorId}>" displayName="${displayName}" timestamp="${timestamp}">${msg.content}</msg>`,
+    content: `<msg msgId="${msg.id}" from="${username} <${authorId}>" displayName="${displayName}" timestamp="${timestamp}">${innerContent}</msg>`,
     type: "text",
   };
 }
 
 // Formats a message as a context item (different from user message - marks it as
 // reply context so the agent understands this is historical conversation).
+// Includes attachment metadata so the model knows what files/images are present.
 function formatReplyContext(msg: DiscordMessage): TextContent {
   const { username } = msg.author;
   const authorId = msg.author.id;
   const displayName = msg.member?.nick ?? msg.author.globalName ?? username;
   const timestamp = msg.createdAt.toISOString();
 
+  let innerContent = msg.content;
+
+  // Append attachment metadata so the model knows what files are present
+  const attachments = [...msg.attachments.values()];
+  if (attachments.length > 0) {
+    const attachmentInfo = attachments
+      .map(
+        (att) =>
+          `<attachment id="${att.id}" filename="${att.filename}" contentType="${att.contentType ?? "unknown"}" size="${att.size}" description="${att.description ?? ""}">`,
+      )
+      .join("\n");
+    innerContent += `\n${attachmentInfo}`;
+  }
+
   return {
-    content: `<reply-context msgId="${msg.id}" from="${username} <${authorId}>" displayName="${displayName}" timestamp="${timestamp}">${msg.content}</reply-context>`,
+    content: `<reply-context msgId="${msg.id}" from="${username} <${authorId}>" displayName="${displayName}" timestamp="${timestamp}">${innerContent}</reply-context>`,
     type: "text",
   };
 }
