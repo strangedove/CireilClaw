@@ -2,7 +2,7 @@ import type { ToolContext, ToolDef } from "$/engine/tools/tool-def.js";
 import * as vb from "valibot";
 
 const RespondSchema = vb.strictObject({
-  attachments: vb.exactOptional(vb.array(vb.pipe(vb.string(), vb.nonEmpty()))),
+  attachments: vb.exactOptional(vb.nullable(vb.array(vb.pipe(vb.string(), vb.nonEmpty())))),
   content: vb.pipe(vb.string(), vb.nonEmpty()),
   final: vb.exactOptional(vb.boolean(), true),
 });
@@ -21,7 +21,7 @@ const respond: ToolDef = {
     "You must call this tool at least once per turn. Every turn must end with a `final: true` respond call.",
   async execute(input: unknown, ctx: ToolContext): Promise<Record<string, unknown>> {
     const { content, final, attachments } = vb.parse(RespondSchema, input);
-    await ctx.send(content, attachments);
+    await ctx.send(content, attachments ?? undefined);
     return { final, sent: true };
   },
   name: "respond",
