@@ -11,6 +11,14 @@ import type blessed from "blessed";
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const bless = createRequire(import.meta.url)("neo-blessed") as typeof blessed;
 
+// Strips the <msg ...>...</msg> wrapper that wraps user messages in history.
+const MSG_TAG_RE = /^<msg\b[^>]*>([\s\S]*)<\/msg>$/;
+
+function stripMsgWrapper(text: string): string {
+  const match = MSG_TAG_RE.exec(text);
+  return match?.[1] ?? text;
+}
+
 // Renders existing session history into the chat log for continuity after restart.
 function replayHistory(session: TuiSession, appendChat: (prefix: string, text: string) => void): void {
   for (const msg of session.history) {
@@ -18,7 +26,7 @@ function replayHistory(session: TuiSession, appendChat: (prefix: string, text: s
       const content = Array.isArray(msg.content) ? msg.content : [msg.content];
       for (const part of content) {
         if (part.type === "text") {
-          appendChat("{cyan-fg}[you]{/}", part.content);
+          appendChat("{cyan-fg}[you]{/}", stripMsgWrapper(part.content));
         }
       }
     } else if (msg.role === "assistant") {
