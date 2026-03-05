@@ -34,6 +34,13 @@ function replayHistory(session: TuiSession, appendChat: (prefix: string, text: s
       for (const part of content) {
         if (part.type === "text") {
           appendChat("{green-fg}[agent]{/}", part.content);
+        } else if (part.type === "toolCall" && part.name === "respond") {
+          // The agent's actual response text is in the respond tool call's input.
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          const input = part.input as Record<string, unknown> | undefined;
+          if (input !== undefined && typeof input["content"] === "string") {
+            appendChat("{green-fg}[agent]{/}", input["content"]);
+          }
         }
       }
     }
