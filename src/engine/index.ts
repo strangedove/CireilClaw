@@ -276,9 +276,7 @@ export class Engine {
     agentSlug: string,
     send: (content: string, attachments?: string[]) => Promise<void>,
     react?: (emoji: string, messageId?: string) => Promise<void>,
-    downloadAttachments?: (
-      messageId: string,
-    ) => Promise<{ filename: string; data: Buffer }[]>,
+    downloadAttachments?: (messageId: string) => Promise<{ filename: string; data: Buffer }[]>,
   ): Promise<void> {
     const tools = await buildTools(agentSlug, session);
     const ctx: ToolContext = {

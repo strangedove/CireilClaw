@@ -10,7 +10,7 @@ const Schema = vb.strictObject({
   to: vb.pipe(vb.string(), vb.nonEmpty()),
 });
 
-const discordDownloadAttachments: ToolDef = {
+const downloadAttachments: ToolDef = {
   description:
     "Download all file attachments from a message into the sandbox.\n\n" +
     "Parameters:\n" +
@@ -37,8 +37,8 @@ const discordDownloadAttachments: ToolDef = {
 
     return { count: saved.length, saved };
   },
-  name: "discord-download-attachments",
+  name: "download-attachments",
   parameters: Schema,
 };
 
-export { discordDownloadAttachments };
+export { downloadAttachments };

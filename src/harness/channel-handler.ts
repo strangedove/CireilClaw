@@ -8,7 +8,10 @@ interface ChannelCapabilities {
 
 interface ChannelHandler {
   readonly capabilities: ChannelCapabilities;
-  downloadAttachments?(session: Session, messageId: string): Promise<{ filename: string; data: Buffer }[]>;
+  downloadAttachments?(
+    session: Session,
+    messageId: string,
+  ): Promise<{ filename: string; data: Buffer }[]>;
   react?(session: Session, emoji: string, messageId?: string): Promise<void>;
   send(session: Session, content: string, attachments?: string[]): Promise<void>;
 }
