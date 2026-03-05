@@ -1,6 +1,6 @@
 import type { EngineConfig } from "$/config/schemas.js";
 import { Engine } from "$/engine/index.js";
-import type { Session } from "$/harness/session.js";
+import type { ChannelType, Session } from "$/harness/session.js";
 
 type SendFn = (session: Session, content: string, attachments?: string[]) => Promise<void>;
 type ReactFn = (session: Session, emoji: string, messageId?: string) => Promise<void>;
@@ -13,8 +13,8 @@ export class Agent {
   private _engine: Engine;
   private readonly _slug: string;
   private readonly _sessions: Map<string, Session>;
-  private _send: SendFn | undefined = undefined;
-  private _react: ReactFn | undefined = undefined;
+  private readonly _sendHandlers = new Map<ChannelType, SendFn>();
+  private readonly _reactHandlers = new Map<ChannelType, ReactFn>();
   private _downloadDiscordAttachments: DownloadDiscordAttachmentsFn | undefined = undefined;
 
   constructor(slug: string, cfg: EngineConfig, sessions: Map<string, Session>) {
@@ -39,12 +39,12 @@ export class Agent {
     return this._sessions;
   }
 
-  registerSend(fn: SendFn): void {
-    this._send = fn;
+  registerSend(channel: ChannelType, fn: SendFn): void {
+    this._sendHandlers.set(channel, fn);
   }
 
-  registerReact(fn: ReactFn): void {
-    this._react = fn;
+  registerReact(channel: ChannelType, fn: ReactFn): void {
+    this._reactHandlers.set(channel, fn);
   }
 
   registerDownloadDiscordAttachments(fn: DownloadDiscordAttachmentsFn): void {
@@ -57,21 +57,23 @@ export class Agent {
       return;
     }
 
-    if (this._send === undefined) {
-      throw new Error(`Agent ${this._slug} has no send handler registered`);
+    const handler = this._sendHandlers.get(session.channel);
+    if (handler === undefined) {
+      throw new Error(`Agent ${this._slug} has no send handler for channel "${session.channel}"`);
     }
-    await this._send(session, content, attachments);
+    await handler(session, content, attachments);
   }
 
   async runTurn(session: Session): Promise<void> {
     const send = async (content: string, attachments?: string[]): Promise<void> => {
       await this.send(session, content, attachments);
     };
+    const reactHandler = this._reactHandlers.get(session.channel);
     const react =
-      this._react === undefined
+      reactHandler === undefined
         ? undefined
         : async (emoji: string, messageId?: string): Promise<void> => {
-            await this._react?.(session, emoji, messageId);
+            await reactHandler(session, emoji, messageId);
           };
     const downloadDiscordAttachments =
       this._downloadDiscordAttachments === undefined

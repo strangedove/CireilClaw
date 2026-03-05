@@ -1,7 +1,7 @@
 import type { ImageContent } from "$/engine/content.js";
 import type { Message } from "$/engine/message.js";
 
-const channelTypes = ["discord", "matrix", "internal"] as const;
+const channelTypes = ["discord", "matrix", "internal", "tui"] as const;
 type ChannelType = (typeof channelTypes)[number];
 
 abstract class BaseSession {
@@ -79,7 +79,22 @@ class InternalSession extends BaseSession {
   }
 }
 
-type Session = DiscordSession | MatrixSession | InternalSession;
+class TuiSession extends BaseSession {
+  override readonly channel = "tui";
 
-export { DiscordSession, MatrixSession, InternalSession, channelTypes as channelTypeList };
+  readonly label: string;
+
+  constructor(label = "local") {
+    super();
+    this.label = label;
+  }
+
+  override id(): string {
+    return `tui:${this.label}`;
+  }
+}
+
+type Session = DiscordSession | MatrixSession | InternalSession | TuiSession;
+
+export { DiscordSession, MatrixSession, InternalSession, TuiSession, channelTypes as channelTypeList };
 export type { Session, ChannelType };

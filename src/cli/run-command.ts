@@ -61,6 +61,7 @@ async function handleConfigChange(
 
 interface Flags {
   logLevel: "error" | "warning" | "info" | "debug";
+  tui: boolean;
 }
 
 async function run(flags: Flags): Promise<void> {
@@ -98,8 +99,24 @@ async function run(flags: Flags): Promise<void> {
   });
 
   for (const slug of agents.keys()) {
-    await startDiscord(harness, slug);
+    try {
+      await startDiscord(harness, slug);
+    } catch {
+      // Discord config missing or invalid — skip this agent's Discord channel.
+      // This is expected when running TUI-only without a Discord config.
+      debug("Skipping Discord for agent", colors.keyword(slug), "(no config or connection failed)");
+    }
   }
+
+  if (flags.tui) {
+    const { startTui } = await import("$/channels/tui.js");
+    const [tuiSlug] = slugs;
+    if (tuiSlug === undefined) {
+      throw new Error("No agents configured — cannot start TUI");
+    }
+    startTui(harness, tuiSlug);
+  }
+
   await harness.startSchedulers(sc.signal);
 
   info("Running with", colors.number(agents.size), "agents");
@@ -131,6 +148,11 @@ export const runCommand = buildCommand({
         default: "debug",
         kind: "enum",
         values: ["error", "warning", "info", "debug"],
+      },
+      tui: {
+        brief: "Enable TUI channel for the first configured agent",
+        default: false,
+        kind: "boolean",
       },
     },
   },

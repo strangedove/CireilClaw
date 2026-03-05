@@ -1,5 +1,5 @@
 import type { ToolContext, ToolDef } from "$/engine/tools/tool-def.js";
-import { DiscordSession, MatrixSession } from "$/harness/session.js";
+import { DiscordSession, MatrixSession, TuiSession } from "$/harness/session.js";
 import * as vb from "valibot";
 
 // No input parameters needed — this just returns session context.
@@ -33,6 +33,14 @@ export const sessionInfo: ToolDef = {
       return {
         platform: "matrix",
         room_id: session.roomId,
+        success: true,
+      };
+    }
+
+    if (session instanceof TuiSession) {
+      return {
+        label: session.label,
+        platform: "tui",
         success: true,
       };
     }

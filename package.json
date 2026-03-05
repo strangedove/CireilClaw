@@ -20,6 +20,7 @@
     "croner": "^10.0.1",
     "drizzle-orm": "1.0.0-beta.15-859cf75",
     "fast-merge-async-iterators": "^1.1.1",
+    "neo-blessed": "^0.2.0",
     "oceanic.js": "^1.13.0",
     "openai": "^6.25.0",
     "ora": "^9.3.0",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/blessed": "^0.1.27",
     "@types/node": "^25.3.3",
     "drizzle-kit": "1.0.0-beta.15-859cf75",
     "oxfmt": "^0.36.0",

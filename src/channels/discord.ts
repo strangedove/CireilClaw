@@ -559,7 +559,7 @@ async function startDiscord(owner: Harness, agentSlug: string): Promise<OceanicC
     rest: {},
   });
 
-  agent.registerSend(async (session, content, attachments) => {
+  agent.registerSend("discord", async (session, content, attachments) => {
     if (!(session instanceof DiscordSession)) {
       throw new Error("Somehow, `session` was not a DiscordSession");
     }
@@ -602,7 +602,7 @@ async function startDiscord(owner: Harness, agentSlug: string): Promise<OceanicC
     return results;
   });
 
-  agent.registerReact(async (session, emoji, messageId) => {
+  agent.registerReact("discord", async (session, emoji, messageId) => {
     if (!(session instanceof DiscordSession)) {
       throw new Error("Somehow, `session` was not a DiscordSession");
     }

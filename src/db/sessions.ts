@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { ImageContent } from "$/engine/content.js";
 import type { Message } from "$/engine/message.js";
 import type { Session } from "$/harness/session.js";
-import { DiscordSession, MatrixSession } from "$/harness/session.js";
+import { DiscordSession, MatrixSession, TuiSession } from "$/harness/session.js";
 import { agentRoot } from "$/util/paths.js";
 import { blake3 } from "@noble/hashes/blake3.js";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
@@ -177,6 +177,8 @@ function _flushSession(agentSlug: string, session: Session): void {
       guildId: session.guildId,
       isNsfw: session.isNsfw,
     } satisfies DiscordMeta;
+  } else if (session.channel === "tui") {
+    meta = { label: session.label };
   } else {
     meta = { roomId: session.roomId };
   }
@@ -231,6 +233,10 @@ function loadSessions(agentSlug: string): Map<string, Session> {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       const meta = JSON.parse(row.meta) as DiscordMeta;
       session = new DiscordSession(meta.channelId, meta.guildId, meta.isNsfw);
+    } else if (row.channel === "tui") {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      const meta = JSON.parse(row.meta) as { label: string };
+      session = new TuiSession(meta.label);
     } else {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       const meta = JSON.parse(row.meta) as { roomId: string };

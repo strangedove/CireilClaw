@@ -79,9 +79,13 @@ type DiscordConfig = vb.InferOutput<typeof DiscordSchema>;
 const MatrixSchema = vb.strictObject({});
 type MatrixConfig = vb.InferOutput<typeof MatrixSchema>;
 
+const TuiSchema = vb.strictObject({});
+type TuiConfig = vb.InferOutput<typeof TuiSchema>;
+
 interface ChannelConfigMap {
   discord: DiscordConfig;
   matrix: MatrixConfig;
+  tui: TuiConfig;
   // oxlint-disable-next-line typescript/no-invalid-void-type
   internal: void;
 }
@@ -105,6 +109,7 @@ export {
   MatrixSchema,
   ToolConfigSchema,
   ToolsConfigSchema,
+  TuiSchema,
 };
 
 export type {

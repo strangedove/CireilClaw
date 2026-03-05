@@ -12,12 +12,20 @@ import { dirname } from "node:path";
 import color from "$/output/colors.js";
 
 type Level = "error" | "warning" | "info" | "debug";
+type LogSink = (level: Level, data: unknown[]) => void;
 
 interface LogConfig {
   level: Level;
 }
 
 const config: LogConfig = { level: "debug" };
+
+// oxlint-disable-next-line init-declarations
+let _tuiSink: LogSink | undefined;
+
+function setTuiSink(sink: LogSink | undefined): void {
+  _tuiSink = sink;
+}
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 const MAX_BACKUPS = 5;
@@ -113,28 +121,44 @@ function setLogFile(filePath: string): void {
 
 function debug(...data: unknown[]): void {
   if (isEnabled("debug")) {
-    console.debug(color.debug("[DEBUG]"), ...data);
+    if (_tuiSink === undefined) {
+      console.debug(color.debug("[DEBUG]"), ...data);
+    } else {
+      _tuiSink("debug", data);
+    }
     writeToFile("debug", data);
   }
 }
 
 function info(...data: unknown[]): void {
   if (isEnabled("info")) {
-    console.info(color.info("[ INFO]"), ...data);
+    if (_tuiSink === undefined) {
+      console.info(color.info("[ INFO]"), ...data);
+    } else {
+      _tuiSink("info", data);
+    }
     writeToFile("info", data);
   }
 }
 
 function warning(...data: unknown[]): void {
   if (isEnabled("warning")) {
-    console.warn(color.warning("[ WARN]"), ...data);
+    if (_tuiSink === undefined) {
+      console.warn(color.warning("[ WARN]"), ...data);
+    } else {
+      _tuiSink("warning", data);
+    }
     writeToFile("warning", data);
   }
 }
 
 function error(...data: unknown[]): void {
-  console.error(color.error("[ERROR]"), ...data);
+  if (_tuiSink === undefined) {
+    console.error(color.error("[ERROR]"), ...data);
+  } else {
+    _tuiSink("error", data);
+  }
   writeToFile("error", data);
 }
 
-export { config, debug, error, info, setLogFile, warning };
+export { config, debug, error, info, setLogFile, setTuiSink, warning };
