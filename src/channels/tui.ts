@@ -19,6 +19,37 @@ function stripMsgWrapper(text: string): string {
   return match?.[1] ?? text;
 }
 
+// Single-pass brace escaping so content cannot be misinterpreted as blessed tags.
+function escapeBlessedTags(text: string): string {
+  return text.replaceAll(/[{}]/g, (ch) => (ch === "{" ? "{open}" : "{close}"));
+}
+
+// Converts common Markdown constructs into blessed tags for terminal rendering.
+function formatMarkdown(text: string): string {
+  // Escape all braces first.
+  let result = escapeBlessedTags(text);
+
+  // Fenced code blocks: ```lang\ncode\n```
+  result = result.replaceAll(/```(\w*)\n([\s\S]*?)```/g, (_match, lang: string, code: string) => {
+    const label = lang ? ` ${lang} ` : "";
+    return `\n{blue-fg}───${label}───{/}\n{yellow-fg}${code.trimEnd()}{/}\n{blue-fg}───{/}`;
+  });
+
+  // Inline code: `text`
+  result = result.replaceAll(/`([^`]+)`/g, "{yellow-fg}$1{/}");
+
+  // Bold: **text**
+  result = result.replaceAll(/\*\*(.+?)\*\*/g, "{bold}$1{/bold}");
+
+  // Italic: *text* — underline as terminal substitute (no italic in most terminals).
+  result = result.replaceAll(/(?<!\*)\*([^*]+)\*(?!\*)/g, "{underline}$1{/}");
+
+  // Headers: # text
+  result = result.replaceAll(/^#{1,6}\s+(.+)$/gm, "{bold}{cyan-fg}$1{/}");
+
+  return result;
+}
+
 // Renders existing session history into the chat log for continuity after restart.
 function replayHistory(session: TuiSession, appendChat: (prefix: string, text: string) => void): void {
   for (const msg of session.history) {
@@ -26,20 +57,20 @@ function replayHistory(session: TuiSession, appendChat: (prefix: string, text: s
       const content = Array.isArray(msg.content) ? msg.content : [msg.content];
       for (const part of content) {
         if (part.type === "text") {
-          appendChat("{cyan-fg}[you]{/}", stripMsgWrapper(part.content));
+          appendChat("{cyan-fg}[you]{/}", escapeBlessedTags(stripMsgWrapper(part.content)));
         }
       }
     } else if (msg.role === "assistant") {
       const content = Array.isArray(msg.content) ? msg.content : [msg.content];
       for (const part of content) {
         if (part.type === "text") {
-          appendChat("{green-fg}[agent]{/}", part.content);
+          appendChat("{green-fg}[agent]{/}", formatMarkdown(part.content));
         } else if (part.type === "toolCall" && part.name === "respond") {
           // The agent's actual response text is in the respond tool call's input.
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion
           const input = part.input as Record<string, unknown> | undefined;
           if (input !== undefined && typeof input["content"] === "string") {
-            appendChat("{green-fg}[agent]{/}", input["content"]);
+            appendChat("{green-fg}[agent]{/}", formatMarkdown(input["content"]));
           }
         }
       }
@@ -151,7 +182,7 @@ function startTui(harness: Harness, agentSlug: string): void {
   // --- Register send/react handlers ---
   // oxlint-disable-next-line typescript/require-await
   agent.registerSend("tui", async (_session, content, _attachments) => {
-    appendChat("{green-fg}[agent]{/}", content);
+    appendChat("{green-fg}[agent]{/}", formatMarkdown(content));
   });
 
   // oxlint-disable-next-line typescript/require-await
@@ -189,7 +220,7 @@ function startTui(harness: Harness, agentSlug: string): void {
     }
 
     processing = true;
-    appendChat("{cyan-fg}[you]{/}", text);
+    appendChat("{cyan-fg}[you]{/}", escapeBlessedTags(text));
 
     session.history.push({
       content: {
