@@ -21,6 +21,7 @@ const respond: ToolDef = {
     "You must call this tool at least once per turn. Every turn must end with a `final: true` respond call.",
   async execute(input: unknown, ctx: ToolContext): Promise<Record<string, unknown>> {
     const { content, final, attachments } = vb.parse(RespondSchema, input);
+
     await ctx.send(content, attachments);
     return { final, sent: true };
   },

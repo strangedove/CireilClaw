@@ -8,7 +8,7 @@ import type { TuiMessage } from "$/channels/tui/tui-message.js";
 import type { UserMessage } from "$/engine/message.js";
 import { TuiSession } from "$/harness/session.js";
 import { Box, render, Static, Text, useApp } from "ink";
-import TextInput from "ink-text-input";
+import { MultilineInput } from "ink-multiline-input";
 import { useCallback, useEffect, useState } from "react";
 import type { ReactElement } from "react";
 
@@ -22,6 +22,9 @@ function TuiApp({ bridge, agent }: AppProps): ReactElement {
   const [messages, setMessages] = useState<TuiMessage[]>(bridge.snapshot());
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Calculate rows based on input content (min 1, max 10)
+  const inputRows = Math.max(1, Math.min(10, input.split("\n").length));
 
   useEffect(() => {
     function onMessage(msg: TuiMessage): void {
@@ -103,12 +106,18 @@ function TuiApp({ bridge, agent }: AppProps): ReactElement {
         <Text color="cyan" bold>
           {"›  "}
         </Text>
-        <TextInput
+        <MultilineInput
           value={input}
           onChange={setInput}
           // oxlint-disable-next-line typescript/no-misused-promises
           onSubmit={handleSubmit}
-          placeholder="say something..."
+          placeholder="say something... (Enter to send, Shift+Enter for newline)"
+          rows={inputRows}
+          maxRows={10}
+          keyBindings={{
+            newline: (key) => key.return && key.shift,
+            submit: (key) => key.return && !key.shift,
+          }}
         />
       </Box>
     </Box>
