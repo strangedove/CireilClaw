@@ -53,16 +53,16 @@ function formatMarkdown(text: string): string {
   // Bold: **text**
   result = result.replaceAll(/\*\*(.+?)\*\*/g, "{bold}$1{/bold}");
 
-  // Italic: *text* — raw ANSI escape since neo-blessed has no italic tag.
+  // Italic: *text* — ANSI italic + cyan color as fallback for terminals without italic.
   result = result.replaceAll(
     /(?<!\*)\*([^*]+)\*(?!\*)/g,
-    `${ANSI_ITALIC_ON}$1${ANSI_ITALIC_OFF}`,
+    `${ANSI_ITALIC_ON}{cyan-fg}$1{/}${ANSI_ITALIC_OFF}`,
   );
 
-  // Strikethrough: ~~text~~
+  // Strikethrough: ~~text~~ — ANSI strikethrough + dim as fallback.
   result = result.replaceAll(
     /~~(.+?)~~/g,
-    `${ANSI_STRIKETHROUGH_ON}$1${ANSI_STRIKETHROUGH_OFF}`,
+    `${ANSI_STRIKETHROUGH_ON}${ANSI_DIM_ON}$1${ANSI_DIM_OFF}${ANSI_STRIKETHROUGH_OFF}`,
   );
 
   // Headers: # text
