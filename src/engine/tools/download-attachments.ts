@@ -12,11 +12,8 @@ const Schema = vb.strictObject({
 
 const downloadAttachments: ToolDef = {
   description:
-    "Download all file attachments from a message into the sandbox.\n\n" +
-    "Parameters:\n" +
-    "- `message_id`: The message ID whose attachments to download.\n" +
-    "- `to`: Sandbox directory path to save files into (e.g. `/workspace/downloads`).\n\n" +
-    "Returns the list of saved sandbox paths. Only available on platforms that support attachment downloads.",
+    "Download all file attachments from a message into the sandbox. Returns the list of saved sandbox paths.\n\n" +
+    "Only available on platforms that support attachment downloads.",
   async execute(input: unknown, ctx: ToolContext): Promise<Record<string, unknown>> {
     if (ctx.downloadAttachments === undefined) {
       return { error: "This channel does not support downloading attachments" };

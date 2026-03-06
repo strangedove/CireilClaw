@@ -7,14 +7,7 @@ const Schema = vb.object({});
 
 export const sessionInfo: ToolDef = {
   description:
-    "Get information about the current session context.\n\n" +
-    "Returns:\n" +
-    '- `platform`: The platform type ("discord" or "matrix")\n' +
-    "- `channel_id` (Discord only): The Discord channel ID\n" +
-    "- `guild_id` (Discord only, optional): The Discord guild/server ID (undefined for DMs)\n" +
-    "- `room_id` (Matrix only): The Matrix room ID\n" +
-    "- `is_nsfw` (Discord only): Whether the channel is marked NSFW\n\n" +
-    "Use this to get the IDs needed for other platform-specific operations.",
+    "Get metadata about the current session — platform type, channel/room IDs, and flags like NSFW.",
   // oxlint-disable-next-line typescript/require-await
   async execute(_input: unknown, ctx: ToolContext): Promise<Record<string, unknown>> {
     const { session } = ctx;
