@@ -59,10 +59,10 @@ function formatMarkdown(text: string): string {
     `${ANSI_ITALIC_ON}{cyan-fg}$1{/}${ANSI_ITALIC_OFF}`,
   );
 
-  // Strikethrough: ~~text~~ — ANSI strikethrough + dim as fallback.
+  // Strikethrough: ~~text~~ — ANSI strikethrough + red as fallback.
   result = result.replaceAll(
     /~~(.+?)~~/g,
-    `${ANSI_STRIKETHROUGH_ON}${ANSI_DIM_ON}$1${ANSI_DIM_OFF}${ANSI_STRIKETHROUGH_OFF}`,
+    `${ANSI_STRIKETHROUGH_ON}{red-fg}$1{/}${ANSI_STRIKETHROUGH_OFF}`,
   );
 
   // Headers: # text
