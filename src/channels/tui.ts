@@ -25,6 +25,14 @@ function escapeBlessedTags(text: string): string {
   return text.replaceAll(/[{}]/g, (ch) => (ch === "{" ? "{open}" : "{close}"));
 }
 
+// ANSI escapes for styles that neo-blessed doesn't expose as tags.
+const ANSI_ITALIC_ON = "\u001B[3m";
+const ANSI_ITALIC_OFF = "\u001B[23m";
+const ANSI_STRIKETHROUGH_ON = "\u001B[9m";
+const ANSI_STRIKETHROUGH_OFF = "\u001B[29m";
+const ANSI_DIM_ON = "\u001B[2m";
+const ANSI_DIM_OFF = "\u001B[22m";
+
 // Converts common Markdown constructs into blessed tags for terminal rendering.
 function formatMarkdown(text: string): string {
   // Escape all braces first.
@@ -33,7 +41,10 @@ function formatMarkdown(text: string): string {
   // Fenced code blocks: ```lang\ncode\n```
   result = result.replaceAll(/```(\w*)\n([\s\S]*?)```/g, (_match, lang: string, code: string) => {
     const label = lang ? ` ${lang} ` : "";
-    return `\n{blue-fg}───${label}───{/}\n{yellow-fg}${code.trimEnd()}{/}\n{blue-fg}───{/}`;
+    const header = `${ANSI_DIM_ON}{cyan-fg}───${label}───{/}${ANSI_DIM_OFF}`;
+    const lines = code.trimEnd().split("\n");
+    const body = lines.map((line) => `  {green-fg}${line}{/}`).join("\n");
+    return `\n${header}\n${body}\n${header}`;
   });
 
   // Inline code: `text`
@@ -42,8 +53,17 @@ function formatMarkdown(text: string): string {
   // Bold: **text**
   result = result.replaceAll(/\*\*(.+?)\*\*/g, "{bold}$1{/bold}");
 
-  // Italic: *text* — underline as terminal substitute (no italic in most terminals).
-  result = result.replaceAll(/(?<!\*)\*([^*]+)\*(?!\*)/g, "{underline}$1{/}");
+  // Italic: *text* — raw ANSI escape since neo-blessed has no italic tag.
+  result = result.replaceAll(
+    /(?<!\*)\*([^*]+)\*(?!\*)/g,
+    `${ANSI_ITALIC_ON}$1${ANSI_ITALIC_OFF}`,
+  );
+
+  // Strikethrough: ~~text~~
+  result = result.replaceAll(
+    /~~(.+?)~~/g,
+    `${ANSI_STRIKETHROUGH_ON}$1${ANSI_STRIKETHROUGH_OFF}`,
+  );
 
   // Headers: # text
   result = result.replaceAll(/^#{1,6}\s+(.+)$/gm, "{bold}{cyan-fg}$1{/}");
