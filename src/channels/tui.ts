@@ -56,7 +56,7 @@ function formatMarkdown(text: string): string {
   // Italic: *text* — ANSI italic + magenta as fallback (cyan is used by [you] tag).
   result = result.replaceAll(
     /(?<!\*)\*([^*]+)\*(?!\*)/g,
-    `${ANSI_ITALIC_ON}{magenta-fg}$1{/}${ANSI_ITALIC_OFF}`,
+    `${ANSI_ITALIC_ON}{219-fg}$1{/}${ANSI_ITALIC_OFF}`,
   );
 
   // Strikethrough: ~~text~~ — ANSI strikethrough + red as fallback.
