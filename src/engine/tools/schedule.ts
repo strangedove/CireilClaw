@@ -18,7 +18,12 @@ const Schema = vb.strictObject({
 const schedule: ToolDef = {
   description:
     "Schedule a one-shot task to run at a specific time in the future.\n\n" +
-    "`at` must be an ISO 8601 timestamp. `delivery`: `announce` (default) sends output to the creating session, `none` discards it.",
+    "Parameters:\n" +
+    "- `id`: A unique slug-format identifier for this job (e.g. `meeting-reminder`).\n" +
+    "- `at`: ISO 8601 timestamp for when to run (e.g. `2026-02-20T15:00:00Z`).\n" +
+    "- `prompt`: The instruction to execute at the scheduled time.\n" +
+    "- `delivery` (optional, default `announce`): How to deliver the output — `announce` sends it to the session that created the job, `none` discards it.\n" +
+    "- `target` (optional, default `last`): Which session to announce to.",
   // oxlint-disable-next-line typescript/require-await
   async execute(input: unknown, ctx: ToolContext): Promise<Record<string, unknown>> {
     try {

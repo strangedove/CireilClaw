@@ -75,8 +75,8 @@ async function buildSystemPrompt(agentSlug: string, session: Session): Promise<s
     baseInstructions.trim(),
     "</base_instructions>",
     "<metadata>",
-    `Date: ${new Date().toISOString()}`,
-    `Platform: ${session.channel}`,
+    `The current system date is: ${new Date().toISOString()}`,
+    `The current session is on the platform: ${session.channel}`,
   ];
 
   if (session.channel === "discord") {
@@ -95,17 +95,22 @@ async function buildSystemPrompt(agentSlug: string, session: Session): Promise<s
   }
 
   lines.push(
-    "Sandbox path roots: /workspace/, /memories/, /blocks/, /skills/.",
     "</metadata>",
     "<memory_blocks>",
+    "The following blocks are engaged in your memory:",
+    "",
   );
 
   for (const [key, value] of Object.entries(blocks)) {
     lines.push(
-      `<${key} path="${value.filePath}">`,
+      `<${key}>`,
       "<description>",
       value.description.trim(),
       "</description>",
+      "<metadata>",
+      `- chars_current: ${value.metadata.chars_current}`,
+      `- file_path: ${value.filePath}`,
+      "</metadata>",
       "<content>",
       value.content.trim(),
       "</content>",

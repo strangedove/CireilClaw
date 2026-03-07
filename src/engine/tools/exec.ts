@@ -23,11 +23,19 @@ function isExecConfig(value: unknown): value is vb.InferOutput<typeof ExecToolCo
 
 export const exec: ToolDef = {
   description:
-    "Run a shell command in a sandbox. The working directory is /workspace.\n\n" +
-    "Only binaries listed in the agent's tools.toml [exec] config are available — all other commands will fail. Returns stdout, stderr, and exit code.\n\n" +
-    "`command` must be a single binary name with no shell metacharacters. Use `args` for arguments.\n\n" +
-    "Filesystem access outside the sandbox is restricted. Commands exceeding the configured timeout are killed.\n\n" +
-    "Tip: Run `ls /bin` to see available binaries. `/workspace/.env` is sourced and can affect $PATH.",
+    "Run a shell command inside a bubblewrap sandbox. The working directory is /workspace.\n\n" +
+    "Only binaries explicitly listed in the agent's tools.toml [exec] config are available — all other commands will fail. Returns stdout, stderr, and exit code.\n\n" +
+    "Usage:\n" +
+    "- 'command' must be a single binary name (no spaces, no shell metacharacters like |, &, ;, $, etc.)\n" +
+    "- 'args' is an array of arguments to pass to the command\n\n" +
+    "When to use:\n" +
+    "- Running build tools, linters, formatters, scripts, or other CLI programs.\n" +
+    "- Performing operations that cannot be expressed with the other file tools (e.g., grep, git, compilation).\n\n" +
+    "Constraints:\n" +
+    "- Filesystem access outside the sandbox is restricted.\n" +
+    "- Commands that exceed the configured timeout are killed automatically.\n\n" +
+    "Tip: Run `ls /bin` to see which binaries are available in the sandbox.\n" +
+    "Tip: The `/workspace/.env` file *is* sourced and can affect your $PATH and other environment variables.",
   async execute(input: unknown, ctx: ToolContext): Promise<Record<string, unknown>> {
     try {
       const data = vb.parse(Schema, input);

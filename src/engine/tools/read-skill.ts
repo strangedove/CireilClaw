@@ -11,9 +11,11 @@ const SkillSchema = vb.strictObject({
 
 const readSkill: ToolDef = {
   description:
-    "Load the full contents of a skill document by its slug.\n\n" +
-    "Your available skills are listed in the system prompt. Call this tool when you need the complete instructions for a skill before following its process.\n\n" +
-    'To browse available skills, use `list-dir` with path "/skills".',
+    "Load the full contents of a skill document by its slug. Skills are markdown files with TOML frontmatter stored in /skills/.\n\n" +
+    "Your available skills are listed in the system prompt by name and summary. Call this tool when you need the complete instructions, examples, and pitfalls for a skill before following its process.\n\n" +
+    "Parameters:\n" +
+    '- `slug`: The skill identifier (filename without .md extension, e.g. "code-review").\n\n' +
+    'If you just need to browse the /skills/ directory, use `list-dir` with path "/skills" instead.',
   async execute(input: unknown, ctx: ToolContext): Promise<Record<string, unknown>> {
     try {
       const data = vb.parse(SkillSchema, input);

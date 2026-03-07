@@ -23,6 +23,10 @@ export const read: ToolDef = {
   description:
     "Read the full contents of a file at the given sandbox path and return it as text.\n\n" +
     "Image files (.jpg, .jpeg, .png, .gif, .webp) are automatically converted to WebP and injected into your next turn as a visual — you will see the image, not raw bytes.\n\n" +
+    "Allowed path roots: /workspace/, /memories/, /blocks/, /skills/.\n\n" +
+    "When to use:\n" +
+    "- Inspecting or reviewing file contents before editing.\n" +
+    "- Viewing images the user has placed in the workspace.\n\n" +
     "When NOT to use:\n" +
     "- To load a skill by its slug — use `read-skill` instead.\n" +
     "- For files you plan to edit repeatedly — use `open-file` to pin them to context.",
