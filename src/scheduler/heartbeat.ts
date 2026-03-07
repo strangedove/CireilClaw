@@ -121,6 +121,7 @@ export async function runHeartbeat(agent: Agent, cfg: HeartbeatConfig): Promise<
             apiBase: cfg.model.apiBase ?? agent.engine.apiBase,
             apiKey: cfg.model.apiKey ?? agent.engine.apiKey,
             channel: agent.engine.overrides,
+            compactPrompts: agent.engine.compactPrompts,
             model: cfg.model.model ?? agent.engine.model,
             provider: cfg.model.provider ?? agent.engine.provider,
           });

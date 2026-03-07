@@ -19,6 +19,7 @@ import { KeyPool as KeyPoolClass } from "$/util/key-pool.js";
 import { loadBlocks, loadBaseInstructions, loadSkills } from "$/util/load.js";
 import { sandboxToReal } from "$/util/paths.js";
 
+import { compactDescriptions } from "./compact-prompts.js";
 import { toolRegistry } from "./tools/index.js";
 
 const MAX_TURNS = 30;
@@ -66,7 +67,7 @@ function squashMessages(messages: Message[]): Message[] {
   return result;
 }
 
-async function buildSystemPrompt(agentSlug: string, session: Session): Promise<string> {
+async function buildSystemPrompt(agentSlug: string, session: Session, compact: boolean): Promise<string> {
   const baseInstructions = await loadBaseInstructions(agentSlug);
   const blocks = await loadBlocks(agentSlug);
 
@@ -75,8 +76,12 @@ async function buildSystemPrompt(agentSlug: string, session: Session): Promise<s
     baseInstructions.trim(),
     "</base_instructions>",
     "<metadata>",
-    `The current system date is: ${new Date().toISOString()}`,
-    `The current session is on the platform: ${session.channel}`,
+    compact
+      ? `Date: ${new Date().toISOString()}`
+      : `The current system date is: ${new Date().toISOString()}`,
+    compact
+      ? `Platform: ${session.channel}`
+      : `The current session is on the platform: ${session.channel}`,
   ];
 
   if (session.channel === "discord") {
@@ -94,29 +99,51 @@ async function buildSystemPrompt(agentSlug: string, session: Session): Promise<s
     throw new Error(`Unimplemented channel: ${session.channel}`);
   }
 
-  lines.push(
-    "</metadata>",
-    "<memory_blocks>",
-    "The following blocks are engaged in your memory:",
-    "",
-  );
-
-  for (const [key, value] of Object.entries(blocks)) {
+  if (compact) {
     lines.push(
-      `<${key}>`,
-      "<description>",
-      value.description.trim(),
-      "</description>",
-      "<metadata>",
-      `- chars_current: ${value.metadata.chars_current}`,
-      `- file_path: ${value.filePath}`,
+      "Sandbox path roots: /workspace/, /memories/, /blocks/, /skills/.",
       "</metadata>",
-      "<content>",
-      value.content.trim(),
-      "</content>",
-      `</${key}>`,
+      "<memory_blocks>",
+    );
+  } else {
+    lines.push(
+      "</metadata>",
+      "<memory_blocks>",
+      "The following blocks are engaged in your memory:",
       "",
     );
+  }
+
+  for (const [key, value] of Object.entries(blocks)) {
+    if (compact) {
+      lines.push(
+        `<${key} path="${value.filePath}">`,
+        "<description>",
+        value.description.trim(),
+        "</description>",
+        "<content>",
+        value.content.trim(),
+        "</content>",
+        `</${key}>`,
+        "",
+      );
+    } else {
+      lines.push(
+        `<${key}>`,
+        "<description>",
+        value.description.trim(),
+        "</description>",
+        "<metadata>",
+        `- chars_current: ${value.metadata.chars_current}`,
+        `- file_path: ${value.filePath}`,
+        "</metadata>",
+        "<content>",
+        value.content.trim(),
+        "</content>",
+        `</${key}>`,
+        "",
+      );
+    }
   }
 
   lines.push("</memory_blocks>");
@@ -155,7 +182,7 @@ async function buildSystemPrompt(agentSlug: string, session: Session): Promise<s
   return lines.join("\n");
 }
 
-async function buildTools(agentSlug: string, _session: Session): Promise<Tool[]> {
+async function buildTools(agentSlug: string, _session: Session, compact: boolean): Promise<Tool[]> {
   const cfg = Object.entries(await loadTools(agentSlug));
 
   const tools: Tool[] = [];
@@ -178,7 +205,12 @@ async function buildTools(agentSlug: string, _session: Session): Promise<Tool[]>
       continue;
     }
 
-    tools.push(def);
+    const compactDesc = compact ? compactDescriptions[tool] : undefined;
+    if (compactDesc !== undefined) {
+      tools.push({ ...def, description: compactDesc });
+    } else {
+      tools.push(def);
+    }
   }
 
   return tools;
@@ -216,6 +248,7 @@ export class Engine {
   private readonly _apiKey: ApiKey;
   private readonly _apiKeyPool: KeyPoolClass;
   private readonly _apiBase: string;
+  private readonly _compactPrompts: boolean;
   private readonly _model: string;
   private readonly _provider: string;
   private readonly _overrides: EngineOverrides;
@@ -226,6 +259,7 @@ export class Engine {
     this._apiKey = cfg.apiKey;
     this._apiKeyPool = new KeyPoolClass(cfg.apiKey);
     this._apiBase = cfg.apiBase;
+    this._compactPrompts = cfg.compactPrompts;
     this._model = cfg.model;
     this._provider = cfg.provider;
     this._overrides = cfg.channel;
@@ -251,6 +285,10 @@ export class Engine {
 
   get provider(): string {
     return this._provider;
+  }
+
+  get compactPrompts(): boolean {
+    return this._compactPrompts;
   }
 
   get overrides(): EngineOverrides {
@@ -284,7 +322,7 @@ export class Engine {
     react?: (emoji: string, messageId?: string) => Promise<void>,
     downloadAttachments?: (messageId: string) => Promise<{ filename: string; data: Buffer }[]>,
   ): Promise<void> {
-    const allTools = await buildTools(agentSlug, session);
+    const allTools = await buildTools(agentSlug, session, this._compactPrompts);
     // Strip tools whose capabilities are absent on this channel to save tokens.
     const tools = allTools.filter((tool) => {
       if (tool.name === "download-attachments" && downloadAttachments === undefined) {
@@ -332,7 +370,7 @@ export class Engine {
         session.pendingToolMessages.push({ content: images, role: "user" });
       }
 
-      const prompt = await buildSystemPrompt(agentSlug, session);
+      const prompt = await buildSystemPrompt(agentSlug, session, this._compactPrompts);
       const history = truncateToTurns(session.history, MAX_TURNS);
       const messages = squashMessages([...history, ...session.pendingToolMessages]);
 

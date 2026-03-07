@@ -37,6 +37,7 @@ const EngineConfigSchema = vb.strictObject({
   apiBase: vb.pipe(nonEmptyString, vb.url()),
   apiKey: vb.exactOptional(ApiKeySchema, "not-needed"),
   channel: vb.exactOptional(EngineOverridesSchema, {}),
+  compactPrompts: vb.exactOptional(vb.boolean(), false),
   maxTokens: vb.exactOptional(vb.pipe(vb.number(), vb.integer(), vb.minValue(1))),
   model: nonEmptyString,
   provider: vb.exactOptional(nonEmptyString, "openai"),
