@@ -347,7 +347,7 @@ function splitMessage(content: string): string[] {
 }
 
 async function handleMessageCreate(
-  { client, owner, ownerId, agentSlug }: HandlerCtx,
+  { agentSlug, client, directMessages, owner, ownerId }: HandlerCtx,
   msg: DiscordMessage,
 ): Promise<void> {
   // Ignore messages with no text and no image attachments.
@@ -360,7 +360,26 @@ async function handleMessageCreate(
     return;
   }
 
-  const isDirectMessage = (msg.guildID ?? undefined) === undefined && msg.author.id === ownerId;
+  // Check if this is a DM (no guild ID)
+  const isDm = (msg.guildID ?? undefined) === undefined;
+
+  // DMs bypass the mention/reply requirement but are still subject to mode restrictions
+  const shouldProcess = isDm;
+  if (isDm) {
+    const { mode, users } = directMessages ?? { mode: "owner", users: [] };
+    const userId = msg.author.id;
+
+    // Enforce DM mode
+    if (mode === "owner" && userId !== ownerId) {
+      return; // Only owner can DM
+    }
+    if (mode === "whitelist" && userId !== ownerId && !users.includes(userId)) {
+      return; // Only owner and whitelisted users can DM
+    }
+    // mode === "public" allows anyone to DM
+  }
+
+  const isDirectMessage = isDm && msg.author.id === ownerId;
 
   const { mentions } = msg;
   const memberIdMentioned = mentions.members.some((it) => it.id === client.application.id);
@@ -379,8 +398,16 @@ async function handleMessageCreate(
     }
   }
 
-  // Not mentioned anywhere
-  if (!(mentionedInReference || memberIdMentioned || userIdMentioned || isDirectMessage)) {
+  // Process if mentioned, replied to, or allowed via DM mode
+  if (
+    !(
+      shouldProcess ||
+      mentionedInReference ||
+      memberIdMentioned ||
+      userIdMentioned ||
+      isDirectMessage
+    )
+  ) {
     return;
   }
 
@@ -575,7 +602,7 @@ async function handleInteractionCreate(
 }
 
 async function startDiscord(owner: Harness, agentSlug: string): Promise<OceanicClient> {
-  const { token, ownerId } = await loadChannel("discord", agentSlug);
+  const { directMessages, token, ownerId } = await loadChannel("discord", agentSlug);
 
   const agent = owner.agents.get(agentSlug);
   if (agent === undefined) {
@@ -682,6 +709,7 @@ async function startDiscord(owner: Harness, agentSlug: string): Promise<OceanicC
   const ctx: HandlerCtx = {
     agentSlug,
     client,
+    directMessages,
     owner,
     ownerId,
   };

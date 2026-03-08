@@ -71,7 +71,24 @@ const IntegrationsConfigSchema = vb.strictObject({
 });
 type IntegrationsConfig = vb.InferOutput<typeof IntegrationsConfigSchema>;
 
+const DirectMessagesModeSchema = vb.exactOptional(
+  vb.union([vb.literal("owner"), vb.literal("public"), vb.literal("whitelist")]),
+  "owner",
+);
+
+type DirectMessagesMode = vb.InferOutput<typeof DirectMessagesModeSchema>;
+
+const DirectMessagesSchema = vb.optional(
+  vb.strictObject({
+    mode: DirectMessagesModeSchema,
+    users: vb.exactOptional(vb.array(vb.pipe(vb.string(), vb.regex(/[0-9]+/))), []),
+  }),
+);
+
+type DirectMessagesConfig = vb.InferOutput<typeof DirectMessagesSchema>;
+
 const DiscordSchema = vb.strictObject({
+  directMessages: vb.exactOptional(DirectMessagesSchema, { mode: "owner", users: [] }),
   ownerId: vb.pipe(vb.string(), vb.nonEmpty(), vb.regex(/[0-9]+/)),
   token: vb.pipe(vb.string(), vb.nonEmpty()),
 });
@@ -98,6 +115,7 @@ type Watchers = AsyncIterableIterator<ConfigChangeEvent>;
 
 export {
   ApiKeySchema,
+  DirectMessagesSchema,
   DiscordSchema,
   EngineConfigSchema,
   EngineOverrideSchema,
@@ -113,6 +131,8 @@ export type {
   ApiKey,
   ChannelConfigMap,
   ConfigChangeEvent,
+  DirectMessagesConfig,
+  DirectMessagesMode,
   EngineConfig,
   EngineOverride,
   EngineOverrides,
