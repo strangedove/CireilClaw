@@ -22,8 +22,6 @@ import { sandboxToReal } from "$/util/paths.js";
 
 import { toolRegistry } from "./tools/index.js";
 
-const MAX_TURNS = 30;
-
 function truncateToTurns(messages: Message[], maxTurns: number): Message[] {
   const turns: Message[][] = [];
 
@@ -235,11 +233,13 @@ export class Engine {
   private readonly _model: string;
   private readonly _provider: string;
   private readonly _overrides: EngineOverrides;
+  private readonly _maxTurns: number;
 
   constructor(cfg: EngineConfig) {
     this._apiKey = cfg.apiKey;
     this._apiKeyPool = new KeyPoolClass(cfg.apiKey);
     this._apiBase = cfg.apiBase;
+    this._maxTurns = cfg.maxTurns;
     this._model = cfg.model;
     this._provider = cfg.provider;
     this._overrides = cfg.channel;
@@ -267,6 +267,10 @@ export class Engine {
 
   get overrides(): EngineOverrides {
     return this._overrides;
+  }
+
+  get maxTurns(): number {
+    return this._maxTurns;
   }
 
   /**
@@ -316,12 +320,12 @@ export class Engine {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const effectiveProvider: ProviderKind = (override?.provider ?? this._provider) as ProviderKind;
 
-    if (session.history.length > MAX_TURNS * 3) {
+    if (session.history.length > this._maxTurns * 3) {
       debug(
         "Truncating history",
         colors.number(session.history.length),
         "messages to last",
-        colors.number(MAX_TURNS),
+        colors.number(this._maxTurns),
         "turns",
       );
     }
@@ -336,7 +340,7 @@ export class Engine {
       }
 
       const prompt = await buildSystemPrompt(agentSlug, session, capabilities);
-      const history = truncateToTurns(session.history, MAX_TURNS);
+      const history = truncateToTurns(session.history, this._maxTurns);
       const messages = squashMessages([...history, ...session.pendingToolMessages]);
 
       const context: Context = {

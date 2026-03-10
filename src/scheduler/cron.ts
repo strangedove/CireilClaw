@@ -105,6 +105,7 @@ async function runMainSession(agent: Agent, job: CronJobConfig): Promise<void> {
             apiBase: job.model.apiBase ?? agent.engine.apiBase,
             apiKey: job.model.apiKey ?? agent.engine.apiKey,
             channel: agent.engine.overrides,
+            maxTurns: agent.engine.maxTurns,
             model: job.model.model ?? agent.engine.model,
             provider: job.model.provider ?? agent.engine.provider,
           });
@@ -144,6 +145,7 @@ async function runIsolatedSession(agent: Agent, job: CronJobConfig): Promise<voi
             apiBase: job.model.apiBase ?? agent.engine.apiBase,
             apiKey: job.model.apiKey ?? agent.engine.apiKey,
             channel: agent.engine.overrides,
+            maxTurns: agent.engine.maxTurns,
             model: job.model.model ?? agent.engine.model,
             provider: job.model.provider ?? agent.engine.provider,
           });
