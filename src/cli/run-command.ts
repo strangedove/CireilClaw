@@ -12,6 +12,7 @@ import colors from "$/output/colors.js";
 import { config, debug, info, setLogFile } from "$/output/log.js";
 import { root } from "$/util/paths.js";
 import { onShutdown, registerSigint } from "$/util/shutdown.js";
+import { select } from "@inquirer/prompts";
 import { buildCommand } from "@stricli/core";
 
 // Extracts agent slug from a config directory path
@@ -63,6 +64,7 @@ async function handleConfigChange(
 interface Flags {
   logLevel: "error" | "warning" | "info" | "debug";
   tui: boolean;
+  tuiAgent?: string;
 }
 
 async function run(flags: Flags): Promise<void> {
@@ -114,10 +116,25 @@ async function run(flags: Flags): Promise<void> {
 
   if (flags.tui) {
     const { startTui } = await import("$/channels/tui.js");
-    const [tuiSlug] = slugs;
-    if (tuiSlug === undefined) {
+
+    let tuiSlug: string;
+    if (flags.tuiAgent !== undefined) {
+      if (!slugs.includes(flags.tuiAgent)) {
+        throw new Error(`Unknown agent "${flags.tuiAgent}" — available: ${slugs.join(", ")}`);
+      }
+      tuiSlug = flags.tuiAgent;
+    } else if (slugs.length === 0) {
       throw new Error("No agents configured — cannot start TUI");
+    } else if (slugs.length === 1) {
+      // oxlint-disable-next-line typescript/no-non-null-assertion
+      tuiSlug = slugs[0]!;
+    } else {
+      tuiSlug = await select({
+        choices: slugs.map((sl) => ({ name: sl, value: sl })),
+        message: "Which agent should the TUI connect to?",
+      });
     }
+
     startTui(harness, tuiSlug);
   }
 
@@ -154,9 +171,15 @@ export const runCommand = buildCommand({
         values: ["error", "warning", "info", "debug"],
       },
       tui: {
-        brief: "Enable TUI channel for the first configured agent",
+        brief: "Enable TUI channel",
         default: false,
         kind: "boolean",
+      },
+      tuiAgent: {
+        brief: "Agent slug to use for TUI (prompts if omitted with multiple agents)",
+        kind: "parsed",
+        optional: true,
+        parse: String,
       },
     },
   },
