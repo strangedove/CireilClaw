@@ -306,4 +306,140 @@ function saveSession(agentSlug: string, session: Session): void {
   _pending.set(key, { flush, timer: setTimeout(flush, DEBOUNCE_MS) });
 }
 
-export { flushAllSessions, loadSessions, saveSession, deleteSession };
+// Updates images for a session by replacing the image data in history
+// and rewriting the image files. Called after re-fetching from Discord.
+function updateSessionImages(
+  agentSlug: string,
+  sessionId: string,
+  newImages: Map<string, Uint8Array>, // messageId -> image data (converted to webp)
+): void {
+  const db = getDb(agentSlug);
+
+  // Get the current session row
+  const row = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+  if (row === undefined) {
+    return;
+  }
+
+  // Parse history, find messages with matching IDs, and update their images
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  const raw = JSON.parse(row.history) as Record<string, unknown>[];
+
+  // First pass: update image_ref IDs in messages
+  for (const msg of raw) {
+    if (msg["role"] !== "user" || msg["id"] === undefined) {
+      continue;
+    }
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const msgId = msg["id"] as string;
+    const newData = newImages.get(msgId);
+    if (newData === undefined) {
+      continue;
+    }
+
+    // Update the image content in this message
+    const { content } = msg;
+    if (Array.isArray(content)) {
+      for (const block of content) {
+        if (
+          typeof block === "object" &&
+          block !== null &&
+          "type" in block &&
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          (block as { type: string }).type === "image_ref"
+        ) {
+          // Replace this image_ref with new data
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          const ref = block as ImageRef;
+          const newId = hashImage(newData);
+          ref.id = newId;
+          ref.mediaType = "image/webp";
+        }
+      }
+    }
+  }
+
+  // Write updated history back
+  const updatedHistory = JSON.stringify(raw);
+
+  // Collect pending images to write
+  const pendingImages: PendingImage[] = [];
+  for (const msg of raw) {
+    if (msg["role"] !== "user" || msg["id"] === undefined) {
+      continue;
+    }
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const msgId = msg["id"] as string;
+    const data = newImages.get(msgId);
+    if (data === undefined) {
+      continue;
+    }
+
+    const { content } = msg;
+    if (Array.isArray(content)) {
+      for (const block of content) {
+        if (
+          typeof block === "object" &&
+          block !== null &&
+          "type" in block &&
+          "id" in block &&
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          (block as { type: string }).type === "image_ref"
+        ) {
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          const ref = block as ImageRef;
+          const path = imagePath(agentSlug, ref.id, ref.mediaType);
+          pendingImages.push({ data, id: ref.id, mediaType: ref.mediaType, path });
+        }
+      }
+    }
+  }
+
+  // Delete old images for this session
+  const oldImages = db
+    .select({ id: images.id, mediaType: images.mediaType })
+    .from(images)
+    .where(eq(images.sessionId, sessionId))
+    .all();
+
+  for (const img of oldImages) {
+    // Check if image is shared with other sessions
+    const shared = db
+      .select({ id: images.id })
+      .from(images)
+      .where(and(notInArray(images.sessionId, [sessionId]), eq(images.id, img.id)))
+      .get();
+
+    if (shared === undefined) {
+      // Not shared, delete the file
+      const path = imagePath(agentSlug, img.id, img.mediaType);
+      try {
+        unlinkSync(path);
+      } catch {
+        // Already gone — fine.
+      }
+    }
+  }
+
+  // Delete old image DB entries
+  db.delete(images).where(eq(images.sessionId, sessionId)).run();
+
+  // Update session history
+  db.update(sessions).set({ history: updatedHistory }).where(eq(sessions.id, sessionId)).run();
+
+  // Write new image files and index them
+  if (pendingImages.length > 0) {
+    mkdirSync(imageDir(agentSlug), { recursive: true });
+    for (const img of pendingImages) {
+      if (!existsSync(img.path)) {
+        writeFileSync(img.path, Buffer.from(img.data));
+      }
+      db.insert(images)
+        .values({ id: img.id, mediaType: img.mediaType, sessionId })
+        .onConflictDoNothing()
+        .run();
+    }
+  }
+}
+
+export { flushAllSessions, loadSessions, saveSession, deleteSession, updateSessionImages };
