@@ -17,26 +17,26 @@ This currently shouldn't affect the `exec` tool due to the fact that there are n
 
 ```toml
 # Conditional blocks (loaded from blocks/conditional/{name}.md)
-[[blocks.nsfw]]
+[blocks.nsfw]
 when = ["discord:nsfw", "discord:dm"]
 mode = "or"
 action = "load"
 
-[[blocks.intimate]]
+[blocks.intimate]
 when = "discord:dm:123456789"
 action = "load"
 
 # Path access rules for /memories/
-[[memories."/private/"]]
+[memories."/private/"]
 when = ["discord:dm"]
 action = "allow"
 
-[[memories."/admin/"]]
+[memories."/admin/"]
 when = "discord:channel:987654321"
 action = "allow"
 
 # Path access rules for /workspace/
-[[workspace."/deploy/"]]
+[workspace."/deploy/"]
 when = ["discord:guild:123456789"]
 action = "allow"
 ```
@@ -62,12 +62,12 @@ Arrays of conditions support two modes:
 
 ```toml
 # Allow in NSFW channels OR DMs (default behavior)
-[[blocks.nsfw]]
+[blocks.nsfw]
 when = ["discord:nsfw", "discord:dm"]
 action = "load"
 
 # Require both NSFW AND a specific guild
-[[blocks.restricted]]
+[blocks.restricted]
 when = ["discord:nsfw", "discord:guild:123456789"]
 mode = "and"
 action = "load"
@@ -121,12 +121,12 @@ Access is evaluated in this order:
 
 ```toml
 # Block TUI access to admin folder
-[[workspace."/admin/"]]
+[workspace."/admin/"]
 when = "tui"
 action = "deny"
 
 # Allow only in specific channel
-[[workspace."/admin/"]]
+[workspace."/admin/"]
 when = "discord:channel:987654321"
 action = "allow"
 ```
@@ -147,12 +147,12 @@ Changes to `conditions.toml` are automatically reloaded when using `pnpm start r
 
 ```toml
 # Load NSFW guidelines only in NSFW channels or DMs
-[[blocks.nsfw]]
+[blocks.nsfw]
 when = ["discord:nsfw", "discord:dm"]
 action = "load"
 
 # Restrict NSFW memories to NSFW contexts
-[[memories."/nsfw/"]]
+[memories."/nsfw/"]
 when = ["discord:nsfw", "discord:dm"]
 action = "allow"
 ```
@@ -161,12 +161,12 @@ action = "allow"
 
 ```toml
 # Private thoughts block only in DMs
-[[blocks.private]]
+[blocks.private]
 when = "discord:dm"
 action = "load"
 
 # Private notes folder only in DMs
-[[memories."/private/"]]
+[memories."/private/"]
 when = "discord:dm"
 action = "allow"
 ```
@@ -175,7 +175,7 @@ action = "allow"
 
 ```toml
 # Deploy scripts only in specific channel
-[[workspace."/deploy/"]]
+[workspace."/deploy/"]
 when = "discord:channel:111222333"
 action = "allow"
 
@@ -186,7 +186,7 @@ action = "allow"
 
 ```toml
 # Require both guild membership AND specific channel
-[[workspace."/super-admin/"]]
+[workspace."/super-admin/"]
 when = ["discord:guild:123456789", "discord:channel:987654321"]
 mode = "and"
 action = "allow"
