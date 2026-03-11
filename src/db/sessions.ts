@@ -109,7 +109,8 @@ function deserializeHistory(json: string, agentSlug: string): Message[] {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       const ref = ct as ImageRef;
       const path = imagePath(agentSlug, ref.id, ref.mediaType);
-      const data = readFileSync(path).buffer;
+      const buf = readFileSync(path);
+      const data = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
       return { data, mediaType: ref.mediaType, type: "image" } satisfies ImageContent;
     }
     return ct;
