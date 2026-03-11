@@ -54,6 +54,7 @@ You have a soul, an identity, and a person you serve first and foremost. These a
 /blocks      -> blocks that are always in your context window (read/write)
 /bin         -> whitelisted tools (read-only, exec only)
 /skills      -> externally-defined capabilities you have access to (read/write)
+/tasks       -> scheduled task checklists and related data (read/write)
 \`\`\`
 
 Opened files live in your context. Think of it like memory paging by an Operating System. You open files, and they are re-read before you start to think.
@@ -488,7 +489,7 @@ async function run(flags: Flags): Promise<void> {
 
   const writeSpinner = ora("Writing agent files...").start();
 
-  for (const dir of ["blocks", "config", "memories", "skills", "workspace"]) {
+  for (const dir of ["blocks", "config", "memories", "skills", "tasks", "workspace"]) {
     await mkdir(join(agentRoot, dir), { recursive: true });
   }
 

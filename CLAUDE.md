@@ -68,7 +68,7 @@ Each agent turn:
 - **`src/config/`** — Loads and validates TOML config via Valibot. Global configs: `engine.toml`, `integrations.toml` (Brave Search), `channels/discord.toml`. Agent configs: `engine.toml`, `tools.toml`, `heartbeat.toml`, `cron.toml`. Engine config supports per-channel overrides (Discord guild, Matrix room) for provider, API base, model, and API key pools. Watches both global and agent-specific directories for hot-reload.
 - **`src/config/migrations/`** — Config migration system. Migrations transform TOML config files in-place (both global and per-agent). Each migration has a timestamped ID (`YYYYMMDDHHMMSS_name`), declares which config files it targets, and implements a `transform` function. Applied automatically on `run`/`tui` startup and manually via `pnpm migrate`.
 - **`src/db/`** — SQLite persistence with Drizzle ORM. WAL-mode enabled for concurrent read safety. Three tables: `sessions` (history, opened files), `images` (blake3 hash-based image index for deduplication), and `cron_jobs` (recurring and one-shot scheduled jobs with status and retry tracking).
-- **`src/util/paths.ts`** — Sandbox enforcement. Only 4 paths are allowed: `/blocks/`, `/memories/`, `/workspace/`, `/skills/`. Prevents symlink escape and path traversal. Maps sandbox paths to real filesystem under `~/.cireilclaw/`.
+- **`src/util/paths.ts`** — Sandbox enforcement. Only 5 paths are allowed: `/blocks/`, `/memories/`, `/workspace/`, `/skills/`, `/tasks/`. Prevents symlink escape and path traversal. Maps sandbox paths to real filesystem under `~/.cireilclaw/`.
 - **`src/util/sandbox.ts`** — Bubblewrap sandbox builder. NixOS-aware with `nix-store` queries for dependency binding. Generic Linux fallback binds `/usr`, `/bin`, `/lib`. Reads `.env` from workspace for environment variables. 64MB tmpfs for `/tmp`, timeout enforcement via `SIGKILL`.
 - **`src/util/key-pool.ts`** — API key pooling with failover and cooldown. Rotates through multiple keys, tracking rate-limited keys (429 responses) with 30-minute cooldown before retry.
 - **`src/util/load.ts`** — Loads memory blocks (person, identity, long-term, soul, style-notes) and skills with TOML frontmatter + markdown content into the system prompt.
@@ -83,7 +83,8 @@ blocks/          # Memory blocks (person.md, identity.md, long-term.md, soul.md,
 config/          # engine.toml (API config), tools.toml (tool toggles, exec config), heartbeat.toml, cron.toml
 core.md          # Base system instructions
 skills/          # Reusable skill documents (markdown with TOML frontmatter)
-workspace/       # Sandboxed workspace for agent operations (includes HEARTBEAT.md if using heartbeat)
+tasks/           # Scheduled task checklists (HEARTBEAT.md) and related data
+workspace/       # Sandboxed workspace for agent operations
 memories/        # Session-specific memory (persisted across turns)
 ```
 

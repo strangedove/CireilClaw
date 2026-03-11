@@ -66,7 +66,7 @@ export async function runHeartbeat(agent: Agent, cfg: HeartbeatConfig): Promise<
     return;
   }
 
-  const checklistPath = join(agentRoot(agent.slug), "workspace", "HEARTBEAT.md");
+  const checklistPath = join(agentRoot(agent.slug), "tasks", "HEARTBEAT.md");
   if (!existsSync(checklistPath)) {
     debug("Heartbeat: no HEARTBEAT.md found — skipping");
     return;

@@ -20,7 +20,7 @@ function sandboxToReal(path: string, agentSlug: string): string {
   const origin = agentRoot(agentSlug);
 
   let sandboxPath = "";
-  let expectedSubdir: "blocks" | "memories" | "skills" | "workspace" | undefined = undefined;
+  let expectedSubdir: "blocks" | "memories" | "skills" | "tasks" | "workspace" | undefined = undefined;
 
   if (path === "/blocks" || path.startsWith("/blocks/")) {
     expectedSubdir = "blocks";
@@ -31,6 +31,9 @@ function sandboxToReal(path: string, agentSlug: string): string {
   } else if (path === "/skills" || path.startsWith("/skills/")) {
     expectedSubdir = "skills";
     sandboxPath = join(origin, "skills", path.slice("/skills".length));
+  } else if (path === "/tasks" || path.startsWith("/tasks/")) {
+    expectedSubdir = "tasks";
+    sandboxPath = join(origin, "tasks", path.slice("/tasks".length));
   } else if (path === "/workspace" || path.startsWith("/workspace/")) {
     expectedSubdir = "workspace";
     sandboxPath = join(origin, "workspace", path.slice("/workspace".length));
