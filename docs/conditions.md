@@ -5,6 +5,10 @@ The `conditions.toml` config file enables conditional access to resources based 
 - Load additional memory blocks only in appropriate contexts (e.g., NSFW content in NSFW channels)
 - Grant or restrict access to specific files/folders based on where the session is running (e.g., admin tools only in specific Discord channels)
 
+## Note
+
+This currently shouldn't affect the `exec` tool due to the fact that there are near-infinite ways to bypass path checks.
+
 ## Config Location
 
 `~/.cireilclaw/agents/{slug}/config/conditions.toml`
