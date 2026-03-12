@@ -2,7 +2,7 @@ import { loadIntegrations } from "$/config/index.js";
 import type { ApiKey } from "$/config/schemas.js";
 import type { ToolContext, ToolDef } from "$/engine/tools/tool-def.js";
 import { debug } from "$/output/log.js";
-import { KeyPool } from "$/util/key-pool.js";
+import { KeyPoolManager } from "$/util/key-pool.js";
 import * as vb from "valibot";
 
 const Schema = vb.strictObject({
@@ -57,7 +57,7 @@ export const braveSearch: ToolDef = {
         };
       }
 
-      const keyPool = new KeyPool(integrations.brave.apiKey);
+      const keyPool = KeyPoolManager.getPool(integrations.brave.apiKey);
       const params = new URLSearchParams();
       params.set("count", String(data.count));
       params.set("q", data.query);

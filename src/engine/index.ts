@@ -17,7 +17,7 @@ import type { Session } from "$/harness/session.js";
 import colors from "$/output/colors.js";
 import { debug } from "$/output/log.js";
 import type { KeyPool } from "$/util/key-pool.js";
-import { KeyPool as KeyPoolClass } from "$/util/key-pool.js";
+import { KeyPool as KeyPoolClass, KeyPoolManager } from "$/util/key-pool.js";
 import {
   loadBlocks,
   loadBaseInstructions,
@@ -308,7 +308,7 @@ export class Engine {
    */
   private _resolveKeyPool(override: EngineOverride | undefined): KeyPoolClass {
     if (override?.apiKey !== undefined) {
-      return new KeyPoolClass(override.apiKey);
+      return KeyPoolManager.getPool(override.apiKey);
     }
     return this._apiKeyPool;
   }
