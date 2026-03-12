@@ -16,6 +16,7 @@ import { DiscordSession, MatrixSession } from "$/harness/session.js";
 import type { Session } from "$/harness/session.js";
 import colors from "$/output/colors.js";
 import { debug } from "$/output/log.js";
+import { formatDate } from "$/util/date.js";
 import type { KeyPool } from "$/util/key-pool.js";
 import { KeyPool as KeyPoolClass, KeyPoolManager } from "$/util/key-pool.js";
 import {
@@ -94,7 +95,7 @@ async function buildSystemPrompt(
     baseInstructions.trim(),
     "</base_instructions>",
     "<metadata>",
-    `The current system date is: ${new Date().toISOString()}`,
+    `The current system date is: ${await formatDate()}`,
     `The current session is on the platform: ${session.channel}`,
   ];
 

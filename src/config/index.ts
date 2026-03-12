@@ -13,6 +13,7 @@ import type {
   ConfigChangeEvent,
   EngineConfig,
   IntegrationsConfig,
+  SystemConfig,
   ToolsConfig,
   Watchers,
 } from "$/config/schemas.js";
@@ -20,6 +21,7 @@ import {
   DiscordSchema,
   EngineConfigSchema,
   IntegrationsConfigSchema,
+  SystemConfigSchema,
   ToolsConfigSchema,
 } from "$/config/schemas.js";
 import type { ChannelType } from "$/harness/session.js";
@@ -219,6 +221,19 @@ async function loadConditions(agentSlug: string): Promise<ConditionsConfig> {
   return vb.parse(ConditionsConfigSchema, obj);
 }
 
+async function loadSystem(): Promise<SystemConfig> {
+  const file = join(root(), "config", "system.toml");
+
+  if (!existsSync(file)) {
+    return vb.parse(SystemConfigSchema, {});
+  }
+
+  const data = await readFile(file, { encoding: "utf8" });
+  const obj = parse(data);
+
+  return vb.parse(SystemConfigSchema, obj);
+}
+
 export {
   loadAgents,
   loadChannel,
@@ -227,8 +242,9 @@ export {
   loadEngine,
   loadHeartbeat,
   loadIntegrations,
+  loadSystem,
   loadTools,
   watcher,
 };
 
-export type { ConditionsConfig };
+export type { ConditionsConfig, SystemConfig };

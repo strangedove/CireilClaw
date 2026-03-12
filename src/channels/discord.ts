@@ -16,6 +16,7 @@ import type { Harness } from "$/harness/index.js";
 import { DiscordSession } from "$/harness/session.js";
 import colors from "$/output/colors.js";
 import { debug, error as logError, info, warning } from "$/output/log.js";
+import { formatDate } from "$/util/date.js";
 import { toWebp } from "$/util/image.js";
 import { root, sandboxToReal } from "$/util/paths.js";
 import type {
@@ -78,11 +79,11 @@ function writeCommandsHash(hash: string): void {
 // agent has full context about who sent what and when, without needing to
 // parse it out of the message history separately. Includes attachment metadata
 // so the model knows what files/images are present.
-function formatUserMessage(msg: DiscordMessage): TextContent {
+async function formatUserMessage(msg: DiscordMessage): Promise<TextContent> {
   const { username } = msg.author;
   const authorId = msg.author.id;
   const displayName = msg.member?.nick ?? msg.author.globalName ?? username;
-  const timestamp = msg.createdAt.toISOString();
+  const timestamp = await formatDate(msg.createdAt);
 
   let innerContent = msg.content;
 
@@ -119,11 +120,11 @@ function formatUserMessage(msg: DiscordMessage): TextContent {
 // Formats a message as a context item (different from user message - marks it as
 // reply context so the agent understands this is historical conversation).
 // Includes attachment metadata so the model knows what files/images are present.
-function formatReplyContext(msg: DiscordMessage): TextContent {
+async function formatReplyContext(msg: DiscordMessage): Promise<TextContent> {
   const { username } = msg.author;
   const authorId = msg.author.id;
   const displayName = msg.member?.nick ?? msg.author.globalName ?? username;
-  const timestamp = msg.createdAt.toISOString();
+  const timestamp = await formatDate(msg.createdAt);
 
   let innerContent = msg.content;
 
@@ -158,8 +159,8 @@ function formatReplyContext(msg: DiscordMessage): TextContent {
 }
 
 // Formats a bot's own message as assistant context for history loading.
-function formatAssistantContext(msg: DiscordMessage): TextContent {
-  const timestamp = msg.createdAt.toISOString();
+async function formatAssistantContext(msg: DiscordMessage): Promise<TextContent> {
+  const timestamp = await formatDate(msg.createdAt);
 
   return {
     content: `<assistant-context msgId="${msg.id}" timestamp="${timestamp}">${msg.content}</assistant-context>`,
@@ -381,7 +382,9 @@ async function populateHistoryFromDiscord(
     const isFromBot = msg.author.id === botId;
     const role = isFromBot ? ("assistant" as const) : ("user" as const);
 
-    const textContent = isFromBot ? formatAssistantContext(msg) : formatReplyContext(msg);
+    const textContent = isFromBot
+      ? await formatAssistantContext(msg)
+      : await formatReplyContext(msg);
     const images = await fetchAllImages(msg);
 
     session.history.push({
@@ -609,7 +612,7 @@ async function handleMessageCreate(
         continue;
       }
 
-      const ancestorContent = formatReplyContext(ancestor);
+      const ancestorContent = await formatReplyContext(ancestor);
       const ancestorImages = await fetchAllImages(ancestor);
       ds.history.push({
         content: ancestorImages.length > 0 ? [ancestorContent, ...ancestorImages] : ancestorContent,
@@ -621,7 +624,7 @@ async function handleMessageCreate(
 
     // Add direct reply only if not already in history
     if (!isMessageInHistory(ds.history, directReply.id)) {
-      const replyContent = formatReplyContext(directReply);
+      const replyContent = await formatReplyContext(directReply);
       const replyImages = await fetchAllImages(directReply);
       ds.history.push({
         content: replyImages.length > 0 ? [replyContent, ...replyImages] : replyContent,
@@ -633,7 +636,7 @@ async function handleMessageCreate(
   }
 
   // Push user message into history, including any image attachments.
-  const textContent = formatUserMessage(msg);
+  const textContent = await formatUserMessage(msg);
   const imageContents = await fetchAllImages(msg);
   const historyLengthBeforeTurn = session.history.length;
   session.history.push({

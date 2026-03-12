@@ -72,6 +72,11 @@ const IntegrationsConfigSchema = vb.strictObject({
 });
 type IntegrationsConfig = vb.InferOutput<typeof IntegrationsConfigSchema>;
 
+const SystemConfigSchema = vb.strictObject({
+  timezone: vb.exactOptional(vb.pipe(vb.string(), vb.nonEmpty())),
+});
+type SystemConfig = vb.InferOutput<typeof SystemConfigSchema>;
+
 const DirectMessagesModeSchema = vb.exactOptional(
   vb.union([vb.literal("owner"), vb.literal("public"), vb.literal("whitelist")]),
   "owner",
@@ -124,6 +129,7 @@ export {
   ExecToolConfigSchema,
   IntegrationsConfigSchema,
   MatrixSchema,
+  SystemConfigSchema,
   ToolConfigSchema,
   ToolsConfigSchema,
 };
@@ -139,6 +145,7 @@ export type {
   EngineOverrides,
   ExecToolConfig,
   IntegrationsConfig,
+  SystemConfig,
   ToolConfig,
   ToolsConfig,
   Watchers,
