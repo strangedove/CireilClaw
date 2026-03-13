@@ -84,6 +84,22 @@ const DirectMessagesModeSchema = vb.exactOptional(
 
 type DirectMessagesMode = vb.InferOutput<typeof DirectMessagesModeSchema>;
 
+const AccessModeSchema = vb.exactOptional(
+  vb.union([vb.literal("disabled"), vb.literal("whitelist"), vb.literal("blacklist")]),
+  "disabled",
+);
+
+type AccessMode = vb.InferOutput<typeof AccessModeSchema>;
+
+const AccessSchema = vb.optional(
+  vb.strictObject({
+    mode: AccessModeSchema,
+    users: vb.exactOptional(vb.array(vb.pipe(vb.string(), vb.regex(/[0-9]+/))), []),
+  }),
+);
+
+type AccessConfig = vb.InferOutput<typeof AccessSchema>;
+
 const DirectMessagesSchema = vb.optional(
   vb.strictObject({
     mode: DirectMessagesModeSchema,
@@ -94,6 +110,7 @@ const DirectMessagesSchema = vb.optional(
 type DirectMessagesConfig = vb.InferOutput<typeof DirectMessagesSchema>;
 
 const DiscordSchema = vb.strictObject({
+  access: vb.exactOptional(AccessSchema, { mode: "disabled", users: [] }),
   directMessages: vb.exactOptional(DirectMessagesSchema, { mode: "owner", users: [] }),
   ownerId: vb.pipe(vb.string(), vb.nonEmpty(), vb.regex(/[0-9]+/)),
   token: vb.pipe(vb.string(), vb.nonEmpty()),
@@ -120,6 +137,7 @@ interface ConfigChangeEvent {
 type Watchers = AsyncIterableIterator<ConfigChangeEvent>;
 
 export {
+  AccessSchema,
   ApiKeySchema,
   DirectMessagesSchema,
   DiscordSchema,
@@ -135,6 +153,8 @@ export {
 };
 
 export type {
+  AccessConfig,
+  AccessMode,
   ApiKey,
   ChannelConfigMap,
   ConfigChangeEvent,

@@ -456,7 +456,7 @@ function splitMessage(content: string): string[] {
 }
 
 async function handleMessageCreate(
-  { agentSlug, client, directMessages, owner, ownerId }: HandlerCtx,
+  { access, agentSlug, client, directMessages, owner, ownerId }: HandlerCtx,
   msg: DiscordMessage,
 ): Promise<void> {
   // Ignore messages with no text and no image attachments.
@@ -469,6 +469,21 @@ async function handleMessageCreate(
     return;
   }
 
+  const userId = msg.author.id;
+
+  // Check access control (whitelist/blacklist). Owner always bypasses.
+  if (userId !== ownerId) {
+    const { mode, users } = access ?? { mode: "disabled", users: [] };
+    if (mode === "whitelist" && !users.includes(userId)) {
+      debug("Ignoring message from", colors.keyword(userId), "- not in whitelist");
+      return; // User not in whitelist
+    }
+    if (mode === "blacklist" && users.includes(userId)) {
+      debug("Ignoring message from", colors.keyword(userId), "- blacklisted");
+      return; // User is blacklisted
+    }
+  }
+
   // Check if this is a DM (no guild ID)
   const isDm = (msg.guildID ?? undefined) === undefined;
 
@@ -476,7 +491,6 @@ async function handleMessageCreate(
   const shouldProcess = isDm;
   if (isDm) {
     const { mode, users } = directMessages ?? { mode: "owner", users: [] };
-    const userId = msg.author.id;
 
     // Enforce DM mode
     if (mode === "owner" && userId !== ownerId) {
@@ -714,7 +728,7 @@ async function handleInteractionCreate(
 }
 
 async function startDiscord(owner: Harness, agentSlug: string): Promise<OceanicClient> {
-  const { directMessages, token, ownerId } = await loadChannel("discord", agentSlug);
+  const { access, directMessages, token, ownerId } = await loadChannel("discord", agentSlug);
 
   const agent = owner.agents.get(agentSlug);
   if (agent === undefined) {
@@ -849,6 +863,7 @@ async function startDiscord(owner: Harness, agentSlug: string): Promise<OceanicC
   });
 
   const ctx: HandlerCtx = {
+    access,
     agentSlug,
     client,
     directMessages,
