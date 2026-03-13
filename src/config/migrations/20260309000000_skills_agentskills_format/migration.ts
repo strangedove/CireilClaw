@@ -14,7 +14,7 @@ const migration: ConfigMigration = {
     "Convert flat skill .md files to agentskills.io directory format (slug/SKILL.md with YAML frontmatter)",
   id: "20260309000000_skills_agentskills_format",
 
-  async migrateAgent(_agentSlug, agentPath) {
+  async migrateAgent(_agentSlug, agentPath, context) {
     const skillsPath = join(agentPath, "skills");
 
     if (!existsSync(skillsPath)) {
@@ -40,6 +40,9 @@ const migration: ConfigMigration = {
       if (ending === -1) {
         continue;
       }
+
+      // Backup the original file before modification
+      await context.backupFile(flatPath);
 
       const tomlData = content.slice(3, ending);
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion

@@ -8,11 +8,14 @@ const migration: ConfigMigration = {
   description: "Move HEARTBEAT.md from workspace/ to tasks/ directory",
   id: "20260311120000_tasks_folder",
 
-  async migrateAgent(_agentSlug, agentPath) {
+  async migrateAgent(_agentSlug, agentPath, context) {
     const oldPath = join(agentPath, "workspace", "HEARTBEAT.md");
     if (!existsSync(oldPath)) {
       return;
     }
+
+    // Backup before moving
+    await context.backupFile(oldPath);
 
     const tasksDir = join(agentPath, "tasks");
     await mkdir(tasksDir, { recursive: true });
