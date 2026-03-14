@@ -1,6 +1,7 @@
 import { loadTools } from "$/config/index.js";
 import type { ExecToolConfigSchema } from "$/config/schemas.js";
 import type { ToolContext, ToolDef } from "$/engine/tools/tool-def.js";
+import { sanitizeError } from "$/util/paths.js";
 import { exec as sandboxExec } from "$/util/sandbox.js";
 import * as vb from "valibot";
 
@@ -91,7 +92,7 @@ export const exec: ToolDef = {
       });
 
       if (result.type === "error") {
-        return { error: result.error, success: false };
+        return { error: sanitizeError(result.error, ctx.agentSlug), success: false };
       }
 
       return {
@@ -104,8 +105,7 @@ export const exec: ToolDef = {
       if (error instanceof vb.ValiError) {
         return { error: error.message, issues: error.issues, success: false };
       }
-      const message = error instanceof Error ? error.message : String(error);
-      return { error: message, success: false };
+      return { error: sanitizeError(error, ctx.agentSlug), success: false };
     }
   },
   name: "exec",
