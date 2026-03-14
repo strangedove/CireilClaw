@@ -95,7 +95,7 @@ interface Skill {
   description: string;
 }
 
-const FrontmatterSchema = vb.strictObject({
+const FrontmatterSchema = vb.object({
   description: vb.pipe(vb.string(), vb.nonEmpty()),
   name: vb.pipe(vb.string(), vb.nonEmpty()),
 });
