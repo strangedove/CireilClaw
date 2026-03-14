@@ -302,6 +302,18 @@ function buildGenericLinuxBindings(args: string[], binaries: string[]): boolean 
     args.push("--ro-bind", "/lib64", "/lib64");
   }
 
+  // Dynamic linker configuration for finding shared libraries
+  const ldConfigFiles = ["/etc/ld.so.cache", "/etc/ld.so.conf"];
+  for (const file of ldConfigFiles) {
+    if (existsSync(file)) {
+      args.push("--ro-bind", file, file);
+    }
+  }
+
+  if (existsSync("/etc/ld.so.conf.d")) {
+    args.push("--ro-bind", "/etc/ld.so.conf.d", "/etc/ld.so.conf.d");
+  }
+
   for (const tool of binaries) {
     const toolPath = locate(tool);
 
