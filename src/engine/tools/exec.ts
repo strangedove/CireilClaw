@@ -86,6 +86,7 @@ export const exec: ToolDef = {
         args: data.args,
         binaries: execConfig.binaries,
         command: data.command,
+        hostEnvPassthrough: execConfig.hostEnvPassthrough,
         timeout: execConfig.timeout,
       });
 

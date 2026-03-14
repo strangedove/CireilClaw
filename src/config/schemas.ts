@@ -47,6 +47,7 @@ type EngineConfig = vb.InferOutput<typeof EngineConfigSchema>;
 const ExecToolConfigSchema = vb.strictObject({
   binaries: vb.array(vb.pipe(vb.string(), vb.nonEmpty())),
   enabled: vb.exactOptional(vb.boolean(), true),
+  hostEnvPassthrough: vb.exactOptional(vb.array(vb.pipe(vb.string(), vb.nonEmpty())), []),
   timeout: vb.exactOptional(vb.pipe(vb.number(), vb.integer(), vb.minValue(1000)), 60_000),
 });
 

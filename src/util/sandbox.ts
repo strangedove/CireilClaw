@@ -41,6 +41,7 @@ interface ExecConfig {
   command: string;
   args?: string[];
   binaries: string[];
+  hostEnvPassthrough: string[];
   timeout: number;
   agentSlug: string;
 }
@@ -155,7 +156,12 @@ function parseEnvFile(envPath: string): EnvVar[] {
   return vars;
 }
 
-function addEnvironmentVars(args: string[], pathValue: string, extraVars?: EnvVar[]): void {
+function addEnvironmentVars(
+  args: string[],
+  pathValue: string,
+  extraVars?: EnvVar[],
+  passthroughVars?: string[],
+): void {
   args.push("--clearenv");
 
   const defaultVars: EnvVar[] = [
@@ -165,7 +171,18 @@ function addEnvironmentVars(args: string[], pathValue: string, extraVars?: EnvVa
     { key: "LC_ALL", value: "C.UTF-8" },
   ];
 
-  const allVars = extraVars ? [...defaultVars, ...extraVars] : defaultVars;
+  // Read passthrough vars from host environment
+  const hostVars: EnvVar[] = [];
+  for (const key of passthroughVars ?? []) {
+    const value = process.env[key];
+    if (value !== undefined) {
+      hostVars.push({ key, value });
+    }
+  }
+
+  const allVars = extraVars
+    ? [...defaultVars, ...extraVars, ...hostVars]
+    : [...defaultVars, ...hostVars];
 
   for (const { key, value } of allVars) {
     args.push("--setenv", key, value);
@@ -328,7 +345,11 @@ function buildGenericLinuxBindings(args: string[], binaries: string[]): boolean 
   return true;
 }
 
-async function buildBwrap(binaries: string[], agentSlug: string): Promise<string[] | undefined> {
+async function buildBwrap(
+  binaries: string[],
+  hostEnvPassthrough: string[],
+  agentSlug: string,
+): Promise<string[] | undefined> {
   const home = process.env["HOME"];
 
   if (home === undefined) {
@@ -355,10 +376,10 @@ async function buildBwrap(binaries: string[], agentSlug: string): Promise<string
 
   if (isNixOS) {
     success = await buildNixBindings(args, binaries);
-    addEnvironmentVars(args, "/bin", extraVars);
+    addEnvironmentVars(args, "/bin", extraVars, hostEnvPassthrough);
   } else {
     success = buildGenericLinuxBindings(args, binaries);
-    addEnvironmentVars(args, "/usr/bin:/bin:/usr/local/bin", extraVars);
+    addEnvironmentVars(args, "/usr/bin:/bin:/usr/local/bin", extraVars, hostEnvPassthrough);
   }
 
   if (!success) {
@@ -447,7 +468,7 @@ async function runInSandbox(
 const SHELL_METACHAR_PATTERN = /[\s"'|&;$`\\]/;
 
 async function exec(cfg: ExecConfig): Promise<ExecResult> {
-  const { binaries, command, args, timeout, agentSlug } = cfg;
+  const { binaries, command, args, hostEnvPassthrough, timeout, agentSlug } = cfg;
 
   // Reject any command with shell metacharacters or spaces
   if (SHELL_METACHAR_PATTERN.test(command)) {
@@ -464,7 +485,7 @@ async function exec(cfg: ExecConfig): Promise<ExecResult> {
     };
   }
 
-  const bwrap = await buildBwrap(binaries, agentSlug);
+  const bwrap = await buildBwrap(binaries, hostEnvPassthrough, agentSlug);
 
   if (bwrap === undefined) {
     return {
