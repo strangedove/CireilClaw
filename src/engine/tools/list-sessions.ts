@@ -85,10 +85,32 @@ export const listSessions: ToolDef = {
 
         let preview = "";
         if (lastMsg !== undefined) {
-          const content = Array.isArray(lastMsg.content) ? lastMsg.content[0] : lastMsg.content;
-          if (content !== undefined && "content" in content) {
-            preview = content.content.slice(0, 100);
-            if (content.content.length > 100) {
+          const contents = Array.isArray(lastMsg.content) ? lastMsg.content : [lastMsg.content];
+
+          // Priority 1: First text content
+          const textContent = contents.find((item) => item.type === "text");
+          if (textContent === undefined) {
+            // Priority 2: First tool call
+            const toolCall = contents.find((item) => item.type === "toolCall");
+            if (toolCall === undefined) {
+              // Priority 3: First image
+              const image = contents.find((item) => item.type === "image");
+              if (image !== undefined) {
+                preview = "[Image]";
+              }
+            } else {
+              preview = `Tool: ${toolCall.name}`;
+            }
+          } else {
+            // Strip Discord-style tags like <msg ...> or <history-context ...>
+            let text = textContent.content.replaceAll(/<[^>]*>/g, "").trim();
+            if (text === "") {
+              // If stripping tags left nothing, maybe it's just tags or metadata.
+              // Use the original content as fallback.
+              text = textContent.content.trim();
+            }
+            preview = text.slice(0, 100);
+            if (text.length > 100) {
               preview += "...";
             }
           }
