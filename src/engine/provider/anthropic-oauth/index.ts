@@ -7,7 +7,7 @@ import type {
 import type { Context, UsageInfo } from "$/engine/context.js";
 import type { AssistantMessage, Message } from "$/engine/message.js";
 import type { Tool } from "$/engine/tool.js";
-import { debug } from "$/output/log.js";
+import { debug, warning } from "$/output/log.js";
 import { encode } from "$/util/base64.js";
 import type { KeyPool } from "$/util/key-pool.js";
 import { toJsonSchema } from "@valibot/to-json-schema";
@@ -184,14 +184,25 @@ export async function generate(
   model: string,
 ): Promise<{ message: AssistantMessage; usage?: UsageInfo }> {
   // Required preamble for the claude-code-20250219 beta — the model checks for this.
-  const system = `You are Claude Code, Anthropic's official CLI for Claude.\n${context.systemPrompt}`;
+  const system = `You are Claude Code, Anthropic's official CLI for Claude.`;
 
   const body = {
     cache_control: {
       type: "ephemeral",
     },
     max_tokens: 8192,
-    messages: translateMessages(context.messages),
+    messages: [
+      {
+        content: [
+          {
+            text: context.systemPrompt,
+            type: "text",
+          },
+        ],
+        role: "assistant",
+      } satisfies AnthropicMessage,
+      ...translateMessages(context.messages),
+    ],
     model,
     system,
     tool_choice: { type: "any" },
@@ -216,7 +227,7 @@ export async function generate(
     }
     attemptedKeys.add(token);
 
-    debug("Starting Anthropic message generation...");
+    debug("Starting Anthropic message generation...", body);
     const resp = await fetch(API_URL, {
       body: JSON.stringify(body),
       headers: {
@@ -238,6 +249,7 @@ export async function generate(
       }
 
       const errorText = await resp.text();
+      warning("Entire error follows:", errorText);
       throw new Error(
         `Anthropic API error (${resp.status}): ${errorText}\n` +
           `  - Model: ${model}\n` +
