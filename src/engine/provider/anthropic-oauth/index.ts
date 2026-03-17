@@ -7,7 +7,7 @@ import type {
 import type { Context, UsageInfo } from "$/engine/context.js";
 import type { AssistantMessage, Message } from "$/engine/message.js";
 import type { Tool } from "$/engine/tool.js";
-import { debug, warning } from "$/output/log.js";
+import { debug } from "$/output/log.js";
 import { encode } from "$/util/base64.js";
 import type { KeyPool } from "$/util/key-pool.js";
 import { toJsonSchema } from "@valibot/to-json-schema";
@@ -227,7 +227,7 @@ export async function generate(
     }
     attemptedKeys.add(token);
 
-    debug("Starting Anthropic message generation...", body);
+    debug("Starting Anthropic message generation...");
     const resp = await fetch(API_URL, {
       body: JSON.stringify(body),
       headers: {
@@ -249,7 +249,6 @@ export async function generate(
       }
 
       const errorText = await resp.text();
-      warning("Entire error follows:", errorText);
       throw new Error(
         `Anthropic API error (${resp.status}): ${errorText}\n` +
           `  - Model: ${model}\n` +
