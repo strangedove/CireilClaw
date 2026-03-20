@@ -16,6 +16,7 @@ import { toJsonSchema } from "@valibot/to-json-schema";
 const API_URL = "https://api.anthropic.com/v1/messages";
 
 interface AnthropicTextBlock {
+  cache_control?: { type: "ephemeral" };
   type: "text";
   text: string;
 }
@@ -189,14 +190,14 @@ export async function generate(
   const system = `You are Claude Code, Anthropic's official CLI for Claude.`;
 
   const body = {
-    cache_control: {
-      type: "ephemeral",
-    },
     max_tokens: 8192,
     messages: [
       {
         content: [
           {
+            cache_control: {
+              type: "ephemeral",
+            },
             text: context.systemPrompt,
             type: "text",
           },

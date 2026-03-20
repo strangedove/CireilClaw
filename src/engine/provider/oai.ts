@@ -48,7 +48,7 @@ function translateMsg(message: Message): ChatCompletionMessageParam {
     case "user":
       if (Array.isArray(message.content)) {
         return {
-          content: message.content.map(translateContent),
+          content: message.content.map((it) => translateContent(it)),
           role: "user",
         };
       }
@@ -79,22 +79,32 @@ function translateMsg(message: Message): ChatCompletionMessageParam {
 
     case "assistant":
       if (Array.isArray(message.content)) {
-        return {
-          role: "assistant",
-          tool_calls: message.content
-            .filter((it) => it.type === "toolCall")
-            .map(
-              (it) =>
-                ({
-                  function: {
-                    arguments: JSON.stringify(it.input),
-                    name: it.name,
-                  },
-                  id: it.id,
-                  type: "function",
-                }) as ChatCompletionMessageToolCall,
-            ),
-        };
+        const toolCalls = message.content.filter((it) => it.type === "toolCall");
+        const otherContent = message.content.filter((it) => it.type !== "toolCall");
+
+        const result: ChatCompletionMessageParam = { role: "assistant" };
+
+        if (toolCalls.length > 0) {
+          result.tool_calls = toolCalls.map(
+            (it) =>
+              ({
+                function: {
+                  arguments: JSON.stringify(it.input),
+                  name: it.name,
+                },
+                id: it.id,
+                type: "function",
+              }) as ChatCompletionMessageToolCall,
+          );
+        }
+
+        if (otherContent.length > 0) {
+          result.content = otherContent
+            .filter((it): it is Extract<typeof it, { type: "text" }> => it.type === "text")
+            .map((it) => ({ text: it.content, type: "text" }) as const);
+        }
+
+        return result;
       }
       if (message.content.type === "text") {
         return {
