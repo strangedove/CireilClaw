@@ -9,6 +9,7 @@ import type { AssistantMessage, Message } from "$/engine/message.js";
 import type { Tool } from "$/engine/tool.js";
 import { debug } from "$/output/log.js";
 import { encode } from "$/util/base64.js";
+import { scaleForAnthropic } from "$/util/image.js";
 import type { KeyPool } from "$/util/key-pool.js";
 import { toJsonSchema } from "@valibot/to-json-schema";
 
@@ -63,10 +64,11 @@ function translateText(content: TextContent): AnthropicTextBlock {
   return { text: content.content, type: "text" };
 }
 
-function translateImage(content: ImageContent): AnthropicImageBlock {
+async function translateImage(content: ImageContent): Promise<AnthropicImageBlock> {
+  const scaled = await scaleForAnthropic(content.data);
   return {
     source: {
-      data: encode(content.data),
+      data: encode(scaled),
       media_type: content.mediaType,
       type: "base64",
     },
@@ -91,7 +93,7 @@ function translateToolResponse(content: ToolResponseContent): AnthropicToolResul
 // Key differences from OAI: toolResponse messages must be merged into a single user message,
 // and any immediately following user message (typically pending images) is absorbed into that block.
 // Also filters out orphaned tool_result blocks that lack matching tool_use in the preceding assistant message.
-function translateMessages(messages: Message[]): AnthropicMessage[] {
+async function translateMessages(messages: Message[]): Promise<AnthropicMessage[]> {
   const result: AnthropicMessage[] = [];
   let lastToolUseIds = new Set<string>();
 
@@ -122,7 +124,7 @@ function translateMessages(messages: Message[]): AnthropicMessage[] {
           if (block.type === "text") {
             blocks.push(translateText(block));
           } else {
-            blocks.push(translateImage(block));
+            blocks.push(await translateImage(block));
           }
         }
         idx++;
@@ -138,7 +140,7 @@ function translateMessages(messages: Message[]): AnthropicMessage[] {
         if (block.type === "text") {
           blocks.push(translateText(block));
         } else {
-          blocks.push(translateImage(block));
+          blocks.push(await translateImage(block));
         }
       }
       result.push({ content: blocks, role: "user" });
@@ -201,7 +203,7 @@ export async function generate(
         ],
         role: "assistant",
       } satisfies AnthropicMessage,
-      ...translateMessages(context.messages),
+      ...(await translateMessages(context.messages)),
     ],
     model,
     system,
