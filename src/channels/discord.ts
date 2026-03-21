@@ -722,7 +722,7 @@ async function handleMessageCreate(
     }
     const reason = error instanceof Error ? error.message : String(error);
     try {
-      await textableMsgChannel.createMessage({
+      const newMsg = await textableMsgChannel.createMessage({
         allowedMentions: {
           repliedUser: true,
         },
@@ -733,6 +733,8 @@ async function handleMessageCreate(
           messageID: msg.id,
         },
       });
+
+      await newMsg.createReaction("✨");
 
       // oxlint-disable-next-line no-shadow
     } catch (error) {
