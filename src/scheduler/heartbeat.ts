@@ -5,7 +5,6 @@ import { join } from "node:path";
 import type { Agent } from "$/agent/index.js";
 import type { HeartbeatConfig } from "$/config/heartbeat.js";
 import { saveSession } from "$/db/sessions.js";
-import { Engine } from "$/engine/index.js";
 import type { ChannelResolution } from "$/harness/channel-handler.js";
 import type { Session } from "$/harness/session.js";
 import { NamedInternalSession, TuiSession } from "$/harness/session.js";
@@ -141,17 +140,7 @@ export async function runHeartbeat(agent: Agent, cfg: HeartbeatConfig): Promise<
   }
 
   try {
-    const engine =
-      cfg.model === undefined
-        ? agent.engine
-        : new Engine({
-            apiBase: cfg.model.apiBase ?? agent.engine.apiBase,
-            apiKey: cfg.model.apiKey ?? agent.engine.apiKey,
-            channel: agent.engine.overrides,
-            maxTurns: agent.engine.maxTurns,
-            model: cfg.model.model ?? agent.engine.model,
-            provider: cfg.model.provider ?? agent.engine.provider,
-          });
+    const engine = cfg.model === undefined ? agent.engine : agent.engine.derive(cfg.model);
 
     await engine.runTurn(
       session,

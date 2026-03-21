@@ -6,6 +6,7 @@ import type { ApiKey, EngineConfig, EngineOverride, EngineOverrides } from "$/co
 import { getDb } from "$/db/index.js";
 import type { ToolCallContent } from "$/engine/content.js";
 import type { Context, UsageInfo } from "$/engine/context.js";
+import { GenerationNoToolCallsError } from "$/engine/errors.js";
 import type { AssistantMessage, Message, ToolMessage } from "$/engine/message.js";
 import { generate as generateAnthropicOauth } from "$/engine/provider/anthropic-oauth/index.js";
 import type { ProviderKind } from "$/engine/provider/index.js";
@@ -21,7 +22,7 @@ import type {
 import { DiscordSession, InternalSession, MatrixSession } from "$/harness/session.js";
 import type { Session } from "$/harness/session.js";
 import colors from "$/output/colors.js";
-import { debug } from "$/output/log.js";
+import { debug, warning } from "$/output/log.js";
 import { formatDate } from "$/util/date.js";
 import type { KeyPool } from "$/util/key-pool.js";
 import { KeyPool as KeyPoolClass, KeyPoolManager } from "$/util/key-pool.js";
@@ -273,15 +274,19 @@ export class Engine {
   private readonly _provider: string;
   private readonly _overrides: EngineOverrides;
   private readonly _maxTurns: number;
+  private readonly _maxGenerationRetries: number;
+  private readonly _toolFailThreshold: number;
 
   constructor(cfg: EngineConfig) {
     this._apiKey = cfg.apiKey;
     this._apiKeyPool = new KeyPoolClass(cfg.apiKey);
     this._apiBase = cfg.apiBase;
+    this._maxGenerationRetries = cfg.maxGenerationRetries;
     this._maxTurns = cfg.maxTurns;
     this._model = cfg.model;
     this._provider = cfg.provider;
     this._overrides = cfg.channel;
+    this._toolFailThreshold = cfg.toolFailThreshold;
   }
 
   get apiBase(): string {
@@ -308,8 +313,30 @@ export class Engine {
     return this._overrides;
   }
 
+  get maxGenerationRetries(): number {
+    return this._maxGenerationRetries;
+  }
+
   get maxTurns(): number {
     return this._maxTurns;
+  }
+
+  get toolFailThreshold(): number {
+    return this._toolFailThreshold;
+  }
+
+  /** Create a new Engine based on this one, with select fields replaced. */
+  derive(partial: Partial<EngineConfig>): Engine {
+    return new Engine({
+      apiBase: partial.apiBase ?? this._apiBase,
+      apiKey: partial.apiKey ?? this._apiKey,
+      channel: partial.channel ?? this._overrides,
+      maxGenerationRetries: partial.maxGenerationRetries ?? this._maxGenerationRetries,
+      maxTurns: partial.maxTurns ?? this._maxTurns,
+      model: partial.model ?? this._model,
+      provider: partial.provider ?? this._provider,
+      toolFailThreshold: partial.toolFailThreshold ?? this._toolFailThreshold,
+    });
   }
 
   /**
@@ -370,6 +397,11 @@ export class Engine {
 
     debug("Turn start", colors.keyword(agentSlug), colors.keyword(session.id()));
 
+    let generationRetries = 0;
+    // Tracks consecutive failures per tool; disables the tool after hitting the threshold.
+    const toolConsecutiveFailures = new Map<string, number>();
+    const disabledTools = new Set<string>();
+
     const override = Engine.resolveOverride(session, this._overrides);
 
     const effectiveKeyPool: KeyPool = this._resolveKeyPool(override);
@@ -400,41 +432,69 @@ export class Engine {
       const prompt = await buildSystemPrompt(agentSlug, session, capabilities, conditions);
       const history = truncateToTurns(session.history, this._maxTurns);
       const messages = squashMessages([...history, ...session.pendingToolMessages]);
+      const activeTools = tools.filter((tool) => !disabledTools.has(tool.name));
 
       const context: Context = {
         messages,
         sessionId: session.id(),
         systemPrompt: prompt,
-        tools,
+        tools: activeTools,
       };
 
       // oxlint-disable-next-line init-declarations
       let assistantMsg: AssistantMessage;
       let usage: UsageInfo | undefined = undefined;
-      switch (effectiveProvider) {
-        case "openai": {
-          ({ message: assistantMsg, usage } = await generate(
-            context,
-            effectiveApiBase,
-            effectiveKeyPool,
-            effectiveModel,
-          ));
-          break;
-        }
 
-        case "anthropic-oauth": {
-          ({ message: assistantMsg, usage } = await generateAnthropicOauth(
-            context,
-            effectiveKeyPool,
-            effectiveModel,
-          ));
-          break;
-        }
+      try {
+        switch (effectiveProvider) {
+          case "openai": {
+            ({ message: assistantMsg, usage } = await generate(
+              context,
+              effectiveApiBase,
+              effectiveKeyPool,
+              effectiveModel,
+            ));
+            break;
+          }
 
-        default: {
-          const _exhaustive: never = effectiveProvider;
-          throw new Error(`Unsupported provider type: ${String(_exhaustive)}`);
+          case "anthropic-oauth": {
+            ({ message: assistantMsg, usage } = await generateAnthropicOauth(
+              context,
+              effectiveKeyPool,
+              effectiveModel,
+            ));
+            break;
+          }
+
+          default: {
+            const _exhaustive: never = effectiveProvider;
+            throw new Error(`Unsupported provider type: ${String(_exhaustive)}`);
+          }
         }
+      } catch (error) {
+        if (
+          error instanceof GenerationNoToolCallsError &&
+          generationRetries < this._maxGenerationRetries
+        ) {
+          generationRetries++;
+          warning(
+            `Generation produced no tool calls (retry ${generationRetries}/${this._maxGenerationRetries})`,
+            colors.keyword(agentSlug),
+            colors.keyword(session.id()),
+          );
+          if (error.text !== undefined && error.text.length > 0) {
+            session.pendingToolMessages.push({
+              content: { content: error.text, type: "text" },
+              role: "assistant",
+            });
+          }
+          session.pendingToolMessages.push({
+            content: { content: "Now use your tools to properly respond.", type: "text" },
+            role: "user",
+          });
+          continue;
+        }
+        throw error;
       }
 
       logUsage(agentSlug, session.id(), context.systemPrompt.length, usage);
@@ -464,6 +524,30 @@ export class Engine {
         debug("Tool call", colors.keyword(call.name), call);
         const result = await def.execute(call.input, ctx);
         debug("Tool result", colors.keyword(call.name), result);
+
+        // Track consecutive failures to catch looping behaviour.
+        const toolFailed = typeof result["success"] === "boolean" && !result["success"];
+        if (toolFailed) {
+          const fails = (toolConsecutiveFailures.get(call.name) ?? 0) + 1;
+          toolConsecutiveFailures.set(call.name, fails);
+          if (fails >= this._toolFailThreshold && !disabledTools.has(call.name)) {
+            disabledTools.add(call.name);
+            warning(
+              `Disabling tool '${call.name}' after ${fails} consecutive failures (threshold: ${this._toolFailThreshold})`,
+              colors.keyword(agentSlug),
+              colors.keyword(session.id()),
+            );
+            session.pendingToolMessages.push({
+              content: {
+                content: `The tool '${call.name}' has failed ${fails} times in a row and has been disabled for this turn. Please either stop trying, ask the user for more information, or do something else.`,
+                type: "text",
+              },
+              role: "user",
+            });
+          }
+        } else {
+          toolConsecutiveFailures.delete(call.name);
+        }
 
         const response: ToolMessage = {
           content: {

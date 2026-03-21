@@ -1,8 +1,9 @@
 import type { Content, ToolCallContent } from "$/engine/content.js";
 import type { Context, UsageInfo } from "$/engine/context.js";
+import { GenerationNoToolCallsError } from "$/engine/errors.js";
 import type { AssistantMessage, Message } from "$/engine/message.js";
 import type { Tool } from "$/engine/tool.js";
-import { debug } from "$/output/log.js";
+import { debug, warning } from "$/output/log.js";
 import { encode } from "$/util/base64.js";
 import type { KeyPool } from "$/util/key-pool.js";
 import { toJsonSchema } from "@valibot/to-json-schema";
@@ -207,6 +208,21 @@ export async function generate(
           continue;
         }
 
+        // Some providers reject tool_choice: "required" with a 400.
+        // Fall back to tool_choice: "auto" with a stern message and retry.
+        if (error.status === 400 && error.message.toLowerCase().includes("tool_choice")) {
+          warning(
+            `Model '${model}' rejected tool_choice: required — falling back to tool_choice: auto`,
+          );
+          params.tool_choice = "auto";
+          params.messages.push({
+            content:
+              "You MUST call a tool. You are not allowed to respond with plain text. Call a tool NOW.",
+            role: "system",
+          });
+          continue;
+        }
+
         const apiErrorDetails: Record<string, unknown> = {
           code: error.code,
           error: error.error,
@@ -259,9 +275,9 @@ export async function generate(
         debug("Had at least one tool call.");
       }
 
-      throw new Error(
-        `Expected 'tool_calls' finish reason (tool_choice is required), got '${reason}'`,
-      );
+      const rawText =
+        typeof choice.message.content === "string" ? choice.message.content : undefined;
+      throw new GenerationNoToolCallsError(rawText, reason);
     }
 
     if (choice.message.tool_calls === undefined) {

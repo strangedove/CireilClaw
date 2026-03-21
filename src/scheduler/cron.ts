@@ -2,7 +2,6 @@ import type { Agent } from "$/agent/index.js";
 import type { CronJobConfig } from "$/config/cron.js";
 import { deleteCronJob, updateLastRun } from "$/db/cron.js";
 import { saveSession } from "$/db/sessions.js";
-import { Engine } from "$/engine/index.js";
 import type { ChannelResolution } from "$/harness/channel-handler.js";
 import type { Session } from "$/harness/session.js";
 import { InternalSession } from "$/harness/session.js";
@@ -115,17 +114,7 @@ async function runMainSession(agent: Agent, job: CronJobConfig): Promise<void> {
   }
 
   try {
-    const engine =
-      job.model === undefined
-        ? agent.engine
-        : new Engine({
-            apiBase: job.model.apiBase ?? agent.engine.apiBase,
-            apiKey: job.model.apiKey ?? agent.engine.apiKey,
-            channel: agent.engine.overrides,
-            maxTurns: agent.engine.maxTurns,
-            model: job.model.model ?? agent.engine.model,
-            provider: job.model.provider ?? agent.engine.provider,
-          });
+    const engine = job.model === undefined ? agent.engine : agent.engine.derive(job.model);
 
     await engine.runTurn(
       session,
@@ -177,17 +166,7 @@ async function runIsolatedSession(agent: Agent, job: CronJobConfig): Promise<voi
   }
 
   try {
-    const engine =
-      job.model === undefined
-        ? agent.engine
-        : new Engine({
-            apiBase: job.model.apiBase ?? agent.engine.apiBase,
-            apiKey: job.model.apiKey ?? agent.engine.apiKey,
-            channel: agent.engine.overrides,
-            maxTurns: agent.engine.maxTurns,
-            model: job.model.model ?? agent.engine.model,
-            provider: job.model.provider ?? agent.engine.provider,
-          });
+    const engine = job.model === undefined ? agent.engine : agent.engine.derive(job.model);
 
     await engine.runTurn(
       session,

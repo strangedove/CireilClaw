@@ -5,6 +5,7 @@ import type {
   ToolResponseContent,
 } from "$/engine/content.js";
 import type { Context, UsageInfo } from "$/engine/context.js";
+import { GenerationNoToolCallsError } from "$/engine/errors.js";
 import type { AssistantMessage, Message } from "$/engine/message.js";
 import type { Tool } from "$/engine/tool.js";
 import { debug } from "$/output/log.js";
@@ -277,8 +278,10 @@ export async function generate(
     };
 
     if (data.stop_reason !== "tool_use") {
-      throw new Error(
-        `Expected 'tool_use' stop_reason (tool_choice is any), got '${data.stop_reason}'`,
+      const textBlock = data.content.find((block) => block.type === "text");
+      throw new GenerationNoToolCallsError(
+        typeof textBlock?.text === "string" ? textBlock.text : undefined,
+        data.stop_reason,
       );
     }
 
