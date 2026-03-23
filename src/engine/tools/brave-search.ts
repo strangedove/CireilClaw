@@ -56,7 +56,7 @@ export const braveSearch: ToolDef = {
 
     const keyPool = KeyPoolManager.getPool(integrations.brave.apiKey);
     const params = new URLSearchParams();
-    params.set("count", String(data.count));
+    params.set("count", String(data.count ?? 5));
     params.set("q", data.query);
 
     // Track attempted keys to avoid infinite loops
