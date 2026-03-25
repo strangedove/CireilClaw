@@ -202,7 +202,7 @@ export async function generate(
   const system = `You are Claude Code, Anthropic's official CLI for Claude.`;
 
   const body = {
-    max_tokens: 8192,
+    max_tokens: 64_000,
     messages: [
       {
         content: [
